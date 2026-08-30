@@ -1,1 +1,5 @@
 data-science/
+playground/
+dataset/*.csv
+dataset/.DS_Store
+.DS_Store/
