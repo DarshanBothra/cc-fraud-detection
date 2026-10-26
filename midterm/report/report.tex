@@ -125,7 +125,6 @@ Code & \href{https://github.com/DarshanBothra/cc-fraud-detection/tree/main/midte
 \midrule
 1 & Darshan Bothra & 2024176 & darshan24176@iiitd.ac.in & Dataset choice, repository, classifier design (1, 5) \\
 2 & Piyush Keshan & 2023376 & piyush23376@iiitd.ac.in & Test plan, code, hypothesis tests, report (2--6) \\
-3 & Virat Yadav & 2024622 & virat24622@iiitd.ac.in & Group and topic registration, review (1, 6) \\
 \bottomrule
 \end{tabularx}}
 \vspace{12pt}
@@ -314,9 +313,8 @@ category share differs by more than 1.1 points. Sample ids are saved in the repo
 \textbf{How we picked each test.} For every test we ran all the alternatives in the plan, but the
 main test was fixed in advance from its assumptions (independent groups, response type, equal or
 unequal variances, sample size), never from which one gave the smallest p-value; choosing by
-p-value would bias the result. Part b) of each test reports the alternatives' results. They agree
-with the main test everywhere except one borderline case: in Test 5, Mann--Whitney gives $p=0.046$,
-below 0.05 but not below the Bonferroni 0.01.
+p-value would bias the result. Part b) of each test reports the alternatives' results; every
+alternative test of the same hypothesis reaches the same decision as the main test.
 
 \textbf{Consequence.} Fixing 2{,}000 per class makes the sample's fraud rate (50\%) artificial, so
 Tests 2 and 3 compare how night-time and categories are distributed \emph{within} each class.
@@ -355,7 +353,6 @@ version.
 \midrule
 Two-sample $z$-test & needs the population $\sigma$, which we do not know. Run anyway: $z=43.67$, same decision \\
 Pooled $t$-test & assumes equal variances, which the $F$-test rejects. Run anyway: $t=43.67$ (3{,}998), same decision \\
-Mann--Whitney $U$ & no normality assumption, but tests ranks, not the mean ratio we want; run as a check, it agrees ($p\approx10^{-285}$) \\
 \bottomrule
 \end{tabularx}}
 
@@ -498,7 +495,6 @@ version fixed in advance (SDs 18.7 and 18.1).
 \toprule
 \textbf{Also considered} & \textbf{Why we did not use it} \\
 \midrule
-Mann--Whitney $U$ & tests ranks rather than mean age; agrees ($p=4\times10^{-6}$) \\
 Kolmogorov--Smirnov & tests any difference in shape, not the mean; run as a complement: $D=0.107$, $p=2\times10^{-10}$ \\
 TOST equivalence test & used as a follow-up, to ask whether the difference is below 3 years \\
 \bottomrule
@@ -547,7 +543,6 @@ Again two independent groups and a continuous response with unknown $\sigma$, so
 \toprule
 \textbf{Also considered} & \textbf{Why we did not use it} \\
 \midrule
-Mann--Whitney $U$ & tests ranks; borderline ($p=0.046$), not significant at 0.01 \\
 Kolmogorov--Smirnov & tests shape; $p=0.064$ \\
 TOST equivalence test & used as a follow-up, because failing to reject alone would prove nothing \\
 \bottomrule

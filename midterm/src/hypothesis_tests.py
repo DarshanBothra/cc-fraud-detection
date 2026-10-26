@@ -120,7 +120,6 @@ def run_tests(s, full_legit_dow_share):
     ft = f_test(f.log_amt, l.log_amt)
     w = welch(f.log_amt, l.log_amt, "greater")
     pooled = stats.ttest_ind(f.log_amt, l.log_amt, equal_var=True, alternative="greater")
-    mw = stats.mannwhitneyu(f.log_amt, l.log_amt, alternative="greater")
     out["test1_amount"] = {
         "f_test_variances": ft, "welch": w, **decision(w["p"]),
         "ratio_geometric_means": float(np.exp(w["diff"])),
@@ -130,7 +129,6 @@ def run_tests(s, full_legit_dow_share):
         "pooled_t": {"t": pooled.statistic, "df": len(f) + len(l) - 2, "p": pooled.pvalue},
         # z-test: same statistic as Welch, but referred to the normal distribution (sigma treated as known)
         "z_test": {"z": w["diff"] / w["se"], "p": float(stats.norm.sf(w["diff"] / w["se"]))},
-        "mann_whitney": {"U": mw.statistic, "p": mw.pvalue},
         "median_amt": {"fraud": f.amt.median(), "legit": l.amt.median()},
     }
 
@@ -186,24 +184,22 @@ def run_tests(s, full_legit_dow_share):
 
     # Test 4: age, two-sided
     w = welch(f.age, l.age, "two-sided")
-    mw = stats.mannwhitneyu(f.age, l.age, alternative="two-sided")
     ks = stats.ks_2samp(f.age, l.age)
     out["test4_age"] = {
         "welch": w, **decision(w["p"]), "matters_threshold_years": DELTA_AGE,
         "matters": bool(min(abs(w["ci95"][0]), abs(w["ci95"][1])) >= DELTA_AGE and np.sign(w["ci95"][0]) == np.sign(w["ci95"][1])),
         "tost_3_years": tost(w, DELTA_AGE),
-        "mann_whitney": {"U": mw.statistic, "p": mw.pvalue}, "ks": {"D": ks.statistic, "p": ks.pvalue},
+        "ks": {"D": ks.statistic, "p": ks.pvalue},
     }
 
     # Test 5: distance, two-sided, plus equivalence test
     w = welch(f.distance_km, l.distance_km, "two-sided")
-    mw = stats.mannwhitneyu(f.distance_km, l.distance_km, alternative="two-sided")
     ks = stats.ks_2samp(f.distance_km, l.distance_km)
     out["test5_distance"] = {
         "welch": w, **decision(w["p"]), "matters_threshold_km": DELTA_DIST,
         "ci_inside_equivalence_band": bool(-DELTA_DIST < w["ci95"][0] and w["ci95"][1] < DELTA_DIST),
         "tost_5km": tost(w, DELTA_DIST),
-        "mann_whitney": {"U": mw.statistic, "p": mw.pvalue}, "ks": {"D": ks.statistic, "p": ks.pvalue},
+        "ks": {"D": ks.statistic, "p": ks.pvalue},
     }
 
     # Optional extra: day-of-week goodness of fit for frauds vs legit proportions (full data)

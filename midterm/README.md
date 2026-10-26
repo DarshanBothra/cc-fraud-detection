@@ -1,6 +1,6 @@
 # CSE558 Midterm Project — What separates a fraudulent card transaction from a normal one?
 
-Group **Null & Void** (Darshan Bothra, Piyush Keshan, Virat Yadav). Statistical inference on the
+Group **Null & Void** (Darshan Bothra, Piyush Keshan). Statistical inference on the
 Kaggle [Credit Card Transactions Fraud Detection Dataset](https://www.kaggle.com/datasets/kartik2112/fraud-detection)
 (simulated with Sparkov; 1,852,394 transactions, 9,651 frauds).
 
@@ -38,11 +38,11 @@ Everything is seeded (`SEED = 42`, pilot seed 7), so reruns give the same number
 
 ### Hypothesis tests (on the 2,000 + 2,000 sample)
 
-1. **Amount**: Welch t-test on log(1 + amt), one-sided. An F-test justifies Welch; the pooled t-test, z-test and Mann–Whitney U are also run for comparison.
+1. **Amount**: Welch t-test on log(1 + amt), one-sided. An F-test justifies Welch; the pooled t-test and z-test are also run for comparison.
 2. **Night (22:00–03:59)**: two-proportion z-test on P(night | class), one-sided, with an odds ratio. The χ² and Fisher tests are shown for comparison.
 3. **Category**: χ² test of independence (14 × 2, df = 13), with Cramér's V and per-category odds ratios. The G-test is shown for comparison, plus post-hoc per-category two-proportion tests with Bonferroni correction.
-4. **Age**: Welch t-test, two-sided, with Mann–Whitney, KS, and TOST equivalence within ±3 years.
-5. **Distance**: Welch t-test, two-sided, with Mann–Whitney, KS, and TOST equivalence within ±5 km.
+4. **Age**: Welch t-test, two-sided, with KS and TOST equivalence within ±3 years.
+5. **Distance**: Welch t-test, two-sided, with KS and TOST equivalence within ±5 km.
 
 Also included: a χ² goodness-of-fit test of fraud across days of the week.
 
