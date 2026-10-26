@@ -1,44 +1,120 @@
-"""Step 4: binary classification (logistic regression and a decision tree).
+"""Step 4: binary classification. Every model and imbalance option listed in the plan, chosen on validation.
 
-Train on fraudTrain.csv rows, choose the threshold on a validation split carved from the training
-rows, evaluate once on fraudTest.csv rows. Compare the models with McNemar's test and a paired
-bootstrap CI, and run a with/without ablation for each feature group the hypothesis tests looked at.
-Writes results/models.json and figures/model_*.pdf.
+Data: train on fraudTrain.csv rows (split 80/20 into training and validation), test once on
+fraudTest.csv rows. The test file is never used to choose anything.
+
+Stage 1 (selection, on a stratified 25% subsample of the training split, scored on validation):
+  for each model, try every imbalance strategy (none, class weights, undersampling, SMOTE) with
+  default settings, keep the best, then try the model's small hyperparameter grid.
+Stage 2: refit each model with its chosen setup on the full training split, pick the decision
+  threshold on validation, evaluate on the test file. The final model is the one with the best
+  validation PR-AUC.
+Then: per-category fraud-rate feature check, McNemar's test and paired bootstrap against the
+runner-up and the logistic-regression baseline, and a with/without ablation of each tested feature.
+Writes results/models.json and figures/model_pr_curves.pdf.
+
+LightGBM and XGBoost need the OpenMP runtime (libomp). The conda environment has it; in a plain
+venv on macOS, set DYLD_LIBRARY_PATH to scikit-learn's bundled copy (see README).
 """
+import time
+import warnings
+
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
+from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import RandomUnderSampler
+from sklearn.compose import ColumnTransformer
 from sklearn.metrics import (average_precision_score, confusion_matrix, f1_score,
                              precision_recall_curve, precision_score, recall_score, roc_auc_score)
 from sklearn.model_selection import train_test_split
-from sklearn.pipeline import make_pipeline
-from sklearn.compose import ColumnTransformer
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import SplineTransformer, StandardScaler
+from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 from statsmodels.stats.contingency_tables import mcnemar
 
 from common import FIGURES, PREPARED, SEED, save_json
 
+warnings.filterwarnings("ignore")
+
 NUMERIC = ["log_amt", "hour", "is_night", "day_of_week", "age", "gender_M", "log_city_pop", "distance_km"]
-# feature groups tied to the five hypothesis tests, for the ablation
-GROUPS = {
+GROUPS = {  # feature groups tied to the five hypothesis tests, for the ablation
     "amount (test 1)": ["log_amt"],
     "time of day (test 2)": ["hour", "is_night"],
     "category (test 3)": "category",
     "age (test 4)": ["age"],
     "distance (test 5)": ["distance_km"],
 }
+STRATEGIES = ["none", "class_weight", "undersample", "smote"]
+RESAMPLE_RATIO = 0.1          # undersampling / SMOTE target: 1 fraud per 10 legitimate
+SELECTION_FRACTION = 0.25     # stage-1 subsample of the training split
 N_BOOT = 200
 
 
+# ---------------------------------------------------------------- models
+
+def _spline_lr(n_knots):
+    cols = lambda X: [c for c in ["log_amt", "hour", "age"] if c in X.columns]
+    ct = ColumnTransformer([("spline", SplineTransformer(n_knots=n_knots, degree=3), cols)],
+                           remainder=StandardScaler())
+    return make_pipeline(ct, LogisticRegression(max_iter=3000))
+
+
+def _lightgbm(p):
+    import lightgbm as lgb
+    return lgb.LGBMClassifier(n_estimators=500, num_leaves=63, learning_rate=p["learning_rate"],
+                              random_state=SEED, verbose=-1)
+
+
+def _xgboost(p):
+    import xgboost as xgb
+    return xgb.XGBClassifier(n_estimators=500, max_depth=8, learning_rate=p["learning_rate"],
+                             tree_method="hist", random_state=SEED, n_jobs=-1, eval_metric="aucpr")
+
+
+def _catboost(p):
+    from catboost import CatBoostClassifier
+    return CatBoostClassifier(iterations=500, depth=8, learning_rate=p["learning_rate"],
+                              random_seed=SEED, verbose=0, thread_count=-1)
+
+
+# name: (builder(params), hyperparameter grid (first = default), max training rows or None)
+MODELS = {
+    "Logistic regression (linear)": (lambda p: make_pipeline(StandardScaler(), LogisticRegression(C=p["C"], max_iter=3000)),
+                                     [{"C": 1.0}, {"C": 0.1}], None),
+    "Logistic regression (splines)": (lambda p: _spline_lr(p["n_knots"]), [{"n_knots": 8}, {"n_knots": 5}], None),
+    "Naive Bayes (Gaussian)": (lambda p: GaussianNB(var_smoothing=p["var_smoothing"]),
+                               [{"var_smoothing": 1e-9}, {"var_smoothing": 1e-6}], None),
+    "k-nearest neighbours": (lambda p: make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=p["k"], weights="distance", n_jobs=-1)),
+                             [{"k": 15}, {"k": 50}], 100_000),
+    "Decision tree": (lambda p: DecisionTreeClassifier(max_depth=p["max_depth"], min_samples_leaf=20, random_state=SEED),
+                      [{"max_depth": 12}, {"max_depth": 8}, {"max_depth": 16}], None),
+    "Random forest": (lambda p: RandomForestClassifier(n_estimators=200, min_samples_leaf=p["min_samples_leaf"], n_jobs=-1, random_state=SEED),
+                      [{"min_samples_leaf": 1}, {"min_samples_leaf": 5}], None),
+    "LightGBM": (_lightgbm, [{"learning_rate": 0.05}, {"learning_rate": 0.1}], None),
+    "XGBoost": (_xgboost, [{"learning_rate": 0.05}, {"learning_rate": 0.1}], None),
+    "CatBoost": (_catboost, [{"learning_rate": 0.05}, {"learning_rate": 0.1}], None),
+    "Linear SVM": (lambda p: make_pipeline(StandardScaler(), LinearSVC(C=p["C"], dual=False, max_iter=5000)),
+                   [{"C": 1.0}, {"C": 0.1}], None),
+    "Neural network (MLP)": (lambda p: make_pipeline(StandardScaler(), MLPClassifier(hidden_layer_sizes=p["hidden"], early_stopping=True, max_iter=30, random_state=SEED)),
+                             [{"hidden": (64, 32)}, {"hidden": (64,)}], None),
+}
+BASELINE = "Logistic regression (splines)"
+
+
+# ---------------------------------------------------------------- helpers
+
 def design(df):
-    X = df[NUMERIC].copy()
-    X = pd.concat([X, pd.get_dummies(df.category, prefix="cat", dtype=float)], axis=1)
-    return X
+    return pd.concat([df[NUMERIC], pd.get_dummies(df.category, prefix="cat", dtype=float)], axis=1)
 
 
 def drop_group(X, group):
@@ -48,122 +124,200 @@ def drop_group(X, group):
     return X.drop(columns=cols)
 
 
-SPLINE_COLS = ["log_amt", "hour", "age"]
+def resample(X, y, strategy):
+    """Returns (X, y, sample_weight). Resampling touches only the data passed in (training rows)."""
+    if strategy == "undersample":
+        X, y = RandomUnderSampler(sampling_strategy=RESAMPLE_RATIO, random_state=SEED).fit_resample(X, y)
+    elif strategy == "smote":
+        X, y = SMOTE(sampling_strategy=RESAMPLE_RATIO, random_state=SEED).fit_resample(X, y)
+    w = None
+    if strategy == "class_weight":
+        pos = y.mean()
+        w = np.where(y == 1, 0.5 / pos, 0.5 / (1 - pos))
+    return X, np.asarray(y), w
 
 
-# Settings chosen on the validation split only (see README): class weighting lowered validation
-# PR-AUC for both models, so imbalance is handled by tuning the decision threshold instead.
-def make_lr_linear():
-    return make_pipeline(StandardScaler(), LogisticRegression(max_iter=3000))
+def cap_rows(X, y, cap):
+    if cap is None or len(y) <= cap:
+        return X, y
+    X, _, y, _ = train_test_split(X, y, train_size=cap, stratify=y, random_state=SEED)
+    return X, y
 
 
-def make_lr():
-    """Logistic regression with cubic-spline terms, so amount, hour and age can act non-linearly."""
-    cols = lambda X: [c for c in SPLINE_COLS if c in X.columns]
-    ct = ColumnTransformer([("spline", SplineTransformer(n_knots=8, degree=3), cols)],
-                           remainder=StandardScaler())
-    return make_pipeline(ct, LogisticRegression(max_iter=3000))
+def fit(name, params, X, y, strategy):
+    build, _, cap = MODELS[name]
+    Xr, yr, w = resample(X, y, strategy)
+    if w is None:
+        Xr, yr = cap_rows(Xr, yr, cap)
+    est = build(params)
+    if w is None:
+        est.fit(Xr, yr)
+    elif isinstance(est, Pipeline):
+        est.fit(Xr, yr, **{f"{est.steps[-1][0]}__sample_weight": w})
+    else:
+        est.fit(Xr, yr, sample_weight=w)
+    return est
 
 
-def make_tree():
-    return DecisionTreeClassifier(max_depth=12, min_samples_leaf=20, random_state=SEED)
+def score(est, X):
+    return est.predict_proba(X)[:, 1] if hasattr(est, "predict_proba") else est.decision_function(X)
 
 
-def best_threshold(y, score):
-    prec, rec, thr = precision_recall_curve(y, score)
+def supports_weights(name):
+    if name == "k-nearest neighbours":
+        return False
+    est = MODELS[name][0](MODELS[name][1][0])
+    last = est.steps[-1][1] if isinstance(est, Pipeline) else est
+    import inspect
+    return "sample_weight" in inspect.signature(last.fit).parameters
+
+
+def best_threshold(y, s):
+    prec, rec, thr = precision_recall_curve(y, s)
     f1 = 2 * prec * rec / np.clip(prec + rec, 1e-12, None)
-    i = int(np.nanargmax(f1[:-1]))
-    return float(thr[i])
+    return float(thr[int(np.nanargmax(f1[:-1]))])
 
 
-def fit_eval(model, Xtr, ytr, Xval, yval, Xte, yte):
-    model.fit(Xtr, ytr)
-    thr = best_threshold(yval, model.predict_proba(Xval)[:, 1])
-    score = model.predict_proba(Xte)[:, 1]
-    pred = (score >= thr).astype(int)
-    tn, fp, fn, tp = confusion_matrix(yte, pred).ravel()
-    metrics = {"threshold": thr, "precision": precision_score(yte, pred), "recall": recall_score(yte, pred),
-               "f1": f1_score(yte, pred), "pr_auc": average_precision_score(yte, score),
-               "roc_auc": roc_auc_score(yte, score), "confusion": {"tn": tn, "fp": fp, "fn": fn, "tp": tp}}
-    return model, score, pred, metrics
+def test_metrics(y, s, thr):
+    pred = (s >= thr).astype(int)
+    tn, fp, fn, tp = confusion_matrix(y, pred).ravel()
+    return pred, {"threshold": thr, "precision": precision_score(y, pred), "recall": recall_score(y, pred),
+                  "f1": f1_score(y, pred), "pr_auc": average_precision_score(y, s),
+                  "roc_auc": roc_auc_score(y, s), "confusion": {"tn": tn, "fp": fp, "fn": fn, "tp": tp}}
 
 
-def paired_bootstrap(y, a, b, fn, n_boot=N_BOOT, seed=SEED):
-    """95% percentile CI for fn(y, a) - fn(y, b), resampling test rows."""
-    rng = np.random.default_rng(seed)
-    n = len(y)
-    diffs = []
-    for _ in range(n_boot):
-        idx = rng.integers(0, n, n)
-        diffs.append(fn(y[idx], a[idx]) - fn(y[idx], b[idx]))
+def paired_bootstrap(y, a, b, fn, n_boot=N_BOOT):
+    rng = np.random.default_rng(SEED)
+    diffs = [fn(y[i], a[i]) - fn(y[i], b[i]) for i in (rng.integers(0, len(y), len(y)) for _ in range(n_boot))]
     return [float(np.percentile(diffs, 2.5)), float(np.percentile(diffs, 97.5))]
 
+
+def compare(y, name_a, a_pred, a_score, name_b, b_pred, b_score):
+    ok_a, ok_b = a_pred == y, b_pred == y
+    table = [[int((ok_a & ok_b).sum()), int((ok_a & ~ok_b).sum())],
+             [int((~ok_a & ok_b).sum()), int((~ok_a & ~ok_b).sum())]]
+    mc = mcnemar(table, exact=False, correction=True)
+    return {"a": name_a, "b": name_b, "table": table, "a_right_b_wrong": table[0][1],
+            "b_right_a_wrong": table[1][0], "mcnemar_chi2": mc.statistic, "mcnemar_p": mc.pvalue,
+            "f1_diff_a_minus_b_ci95": paired_bootstrap(y, a_pred, b_pred, f1_score),
+            "prauc_diff_a_minus_b_ci95": paired_bootstrap(y, a_score, b_score, average_precision_score)}
+
+
+def log(*a):
+    print(time.strftime("%H:%M:%S"), *a, flush=True)
+
+
+# ---------------------------------------------------------------- main
 
 def main():
     df = pd.read_parquet(PREPARED)
     X, y = design(df), df.is_fraud.values
-    tr_mask = (df.split == "train").values
-    X_trainfull, y_trainfull = X[tr_mask], y[tr_mask]
-    Xte, yte = X[~tr_mask], y[~tr_mask]
-    Xtr, Xval, ytr, yval = train_test_split(X_trainfull, y_trainfull, test_size=0.2,
-                                            stratify=y_trainfull, random_state=SEED)
+    tr = (df.split == "train").values
+    Xtr, Xval, ytr, yval = train_test_split(X[tr], y[tr], test_size=0.2, stratify=y[tr], random_state=SEED)
+    Xte, yte = X[~tr], y[~tr]
+    Xsel, _, ysel, _ = train_test_split(Xtr, ytr, train_size=SELECTION_FRACTION, stratify=ytr, random_state=SEED)
+    out = {"n_train": len(ytr), "n_val": len(yval), "n_test": len(yte), "n_selection": len(ysel),
+           "frauds_test": int(yte.sum()), "baseline_all_legit_accuracy": float(1 - yte.mean()),
+           "features": list(X.columns), "strategies": STRATEGIES, "resample_ratio": RESAMPLE_RATIO}
 
-    out = {"n_train": len(ytr), "n_val": len(yval), "n_test": len(yte),
-           "frauds_test": int(yte.sum()), "features": list(X.columns)}
+    # ---- stage 1: imbalance strategy, then hyperparameters, on the selection subsample
+    selection = {}
+    for name, (_, grid, _) in MODELS.items():
+        rec = {"strategy_val_prauc": {}, "grid_val_prauc": {}}
+        for strat in STRATEGIES:
+            if strat == "class_weight" and not supports_weights(name):
+                rec["strategy_val_prauc"][strat] = None
+                continue
+            t0 = time.time()
+            est = fit(name, grid[0], Xsel, ysel, strat)
+            rec["strategy_val_prauc"][strat] = average_precision_score(yval, score(est, Xval))
+            log(f"[select] {name:32s} {strat:13s} val PR-AUC {rec['strategy_val_prauc'][strat]:.4f} ({time.time()-t0:.0f}s)")
+        rec["strategy"] = max((k for k, v in rec["strategy_val_prauc"].items() if v is not None),
+                              key=lambda k: rec["strategy_val_prauc"][k])
+        rec["grid_val_prauc"][str(grid[0])] = rec["strategy_val_prauc"][rec["strategy"]]
+        for params in grid[1:]:
+            est = fit(name, params, Xsel, ysel, rec["strategy"])
+            rec["grid_val_prauc"][str(params)] = average_precision_score(yval, score(est, Xval))
+            log(f"[select] {name:32s} {str(params):26s} val PR-AUC {rec['grid_val_prauc'][str(params)]:.4f}")
+        best_params = max(grid, key=lambda p: rec["grid_val_prauc"][str(p)])
+        rec["params"] = best_params
+        selection[name] = rec
+    out["selection"] = {k: {**v, "params": str(v["params"])} for k, v in selection.items()}
 
-    _, _, _, out["logistic_regression_linear"] = fit_eval(make_lr_linear(), Xtr, ytr, Xval, yval, Xte, yte)
-    lr, lr_score, lr_pred, out["logistic_regression"] = fit_eval(make_lr(), Xtr, ytr, Xval, yval, Xte, yte)
-    dt, dt_score, dt_pred, out["decision_tree"] = fit_eval(make_tree(), Xtr, ytr, Xval, yval, Xte, yte)
+    # ---- stage 2: refit on the full training split, threshold on validation, evaluate on test
+    final, scores_te, preds_te, fitted = {}, {}, {}, {}
+    for name in MODELS:
+        t0 = time.time()
+        est = fit(name, selection[name]["params"], Xtr, ytr, selection[name]["strategy"])
+        s_val = score(est, Xval)
+        thr = best_threshold(yval, s_val)
+        s_te = score(est, Xte)
+        preds_te[name], m = test_metrics(yte, s_te, thr)
+        m["val_pr_auc"] = average_precision_score(yval, s_val)
+        m["strategy"], m["params"] = selection[name]["strategy"], str(selection[name]["params"])
+        m["fit_seconds"] = round(time.time() - t0, 1)
+        final[name], scores_te[name], fitted[name] = m, s_te, est
+        log(f"[final]  {name:32s} val PR-AUC {m['val_pr_auc']:.4f}  test PR-AUC {m['pr_auc']:.4f}  F1 {m['f1']:.4f}")
+    out["final"] = final
+    ranking = sorted(final, key=lambda k: -final[k]["val_pr_auc"])
+    best, runner_up = ranking[0], ranking[1]
+    out["ranking_by_val_prauc"] = ranking
+    out["chosen_model"] = best
+    log("chosen:", best, "runner-up:", runner_up)
 
-    # all-legitimate baseline, to show why accuracy is not the headline
-    out["baseline_all_legit_accuracy"] = float(1 - yte.mean())
+    # ---- per-category fraud rate as an extra feature (target encoding from the training split only)
+    rate = pd.Series(ytr, index=Xtr.index).groupby(df.loc[Xtr.index, "category"]).mean()
+    add_rate = lambda Xp: Xp.assign(cat_fraud_rate=df.loc[Xp.index, "category"].map(rate).values)
+    out["category_rate_feature"] = {}
+    for name in dict.fromkeys([best, BASELINE]):
+        est = fit(name, selection[name]["params"], add_rate(Xtr), ytr, selection[name]["strategy"])
+        v = average_precision_score(yval, score(est, add_rate(Xval)))
+        out["category_rate_feature"][name] = {"val_pr_auc_without": final[name]["val_pr_auc"], "val_pr_auc_with": v}
+        log(f"[cat-rate] {name}: val PR-AUC {final[name]['val_pr_auc']:.4f} -> {v:.4f}")
 
-    # interpretation: LR coefficients (standardised features) and tree importances
-    names = lr[0].get_feature_names_out()
-    coefs = lr[-1].coef_[0]
-    out["lr_coefficients"] = dict(sorted(zip(names, coefs.round(4)), key=lambda kv: -abs(kv[1])))
-    out["tree_importances"] = dict(sorted(zip(X.columns, dt.feature_importances_.round(4)),
-                                          key=lambda kv: -kv[1]))
+    # ---- statistical comparison of models on the test file
+    # chosen model against the next five by validation PR-AUC, the baseline and the decision tree
+    others = [o for o in dict.fromkeys(ranking[1:6] + [BASELINE, "Decision tree"]) if o != best]
+    out["comparisons"] = [compare(yte, best, preds_te[best], scores_te[best], o, preds_te[o], scores_te[o])
+                          for o in others]
+    for c in out["comparisons"]:
+        log(f"[compare] {best} vs {c['b']}: McNemar p={c['mcnemar_p']:.3g}, "
+            f"F1 diff CI {np.round(c['f1_diff_a_minus_b_ci95'], 3)}, PR-AUC diff CI {np.round(c['prauc_diff_a_minus_b_ci95'], 3)}")
 
-    # McNemar: do the two models make errors on different test rows?
-    lr_ok, dt_ok = lr_pred == yte, dt_pred == yte
-    table = [[int((lr_ok & dt_ok).sum()), int((lr_ok & ~dt_ok).sum())],
-             [int((~lr_ok & dt_ok).sum()), int((~lr_ok & ~dt_ok).sum())]]
-    mc = mcnemar(table, exact=False, correction=True)
-    out["mcnemar_lr_vs_tree"] = {"table": table, "chi2": mc.statistic, "p": mc.pvalue}
-    out["bootstrap_f1_diff_tree_minus_lr_ci95"] = paired_bootstrap(yte, dt_pred, lr_pred, f1_score)
-    out["bootstrap_prauc_diff_tree_minus_lr_ci95"] = paired_bootstrap(yte, dt_score, lr_score, average_precision_score)
+    # ---- interpretation
+    est = fitted[best]
+    last = est.steps[-1][1] if isinstance(est, Pipeline) else est
+    if hasattr(last, "feature_importances_"):
+        imp = np.asarray(last.feature_importances_, dtype=float)
+        out["chosen_feature_importances"] = dict(sorted(zip(X.columns, (imp / imp.sum()).round(4)), key=lambda kv: -kv[1]))
 
-    # ablation: drop each tested feature group, refit, compare PR-AUC on the test set
+    # ---- ablation: drop each tested feature group, refit, fall in test PR-AUC
     ablation = {}
-    for name in GROUPS:
+    for group in GROUPS:
         row = {}
-        for label, factory, full_score in (("logistic_regression", make_lr, lr_score),
-                                           ("decision_tree", make_tree, dt_score)):
-            m = factory().fit(drop_group(Xtr, name), ytr)
-            s = m.predict_proba(drop_group(Xte, name))[:, 1]
-            row[label] = {"pr_auc_without": average_precision_score(yte, s),
-                          "pr_auc_drop": average_precision_score(yte, full_score) - average_precision_score(yte, s),
-                          "drop_ci95": paired_bootstrap(yte, full_score, s, average_precision_score, n_boot=100)}
-        ablation[name] = row
-        print("ablation", name, {k: round(v["pr_auc_drop"], 4) for k, v in row.items()})
+        for name in dict.fromkeys([best, BASELINE]):
+            m = fit(name, selection[name]["params"], drop_group(Xtr, group), ytr, selection[name]["strategy"])
+            s = score(m, drop_group(Xte, group))
+            row[name] = {"pr_auc_without": average_precision_score(yte, s),
+                         "pr_auc_drop": final[name]["pr_auc"] - average_precision_score(yte, s),
+                         "drop_ci95": paired_bootstrap(yte, scores_te[name], s, average_precision_score, n_boot=100)}
+        ablation[group] = row
+        log("[ablation]", group, {k: round(v["pr_auc_drop"], 4) for k, v in row.items()})
     out["ablation"] = ablation
 
-    # figure: precision-recall curves
-    fig, ax = plt.subplots(figsize=(3.4, 2.6))
-    for score, label, c in ((lr_score, "logistic regression", "#2e86c1"), (dt_score, "decision tree", "#c0392b")):
-        p, r, _ = precision_recall_curve(yte, score)
-        ax.plot(r, p, color=c, label=f"{label} (PR-AUC {average_precision_score(yte, score):.2f})")
-    ax.set_xlabel("recall"); ax.set_ylabel("precision"); ax.legend(frameon=False, fontsize=7)
+    # ---- figure: precision-recall curves of all final models
+    fig, ax = plt.subplots(figsize=(3.4, 3.0))
+    cmap = plt.get_cmap("tab20")
+    for i, name in enumerate(ranking):
+        p, r, _ = precision_recall_curve(yte, scores_te[name])
+        lw = 2.0 if name == best else 0.9
+        ax.plot(r, p, lw=lw, color=cmap(i), label=f"{name} ({final[name]['pr_auc']:.2f})")
+    ax.set_xlabel("recall"); ax.set_ylabel("precision")
+    ax.legend(frameon=False, fontsize=5, loc="lower left")
     fig.tight_layout(); fig.savefig(FIGURES / "model_pr_curves.pdf"); plt.close(fig)
 
     save_json(out, "models.json")
-    for k in ("logistic_regression_linear", "logistic_regression", "decision_tree"):
-        print(k, {m: round(v, 4) if isinstance(v, float) else v for m, v in out[k].items()})
-    print("mcnemar", out["mcnemar_lr_vs_tree"])
-    print("f1 diff CI", out["bootstrap_f1_diff_tree_minus_lr_ci95"], "prauc diff CI", out["bootstrap_prauc_diff_tree_minus_lr_ci95"])
-    print("top tree", list(out["tree_importances"].items())[:6])
-    print("top lr", list(out["lr_coefficients"].items())[:6])
+    log("done")
 
 
 if __name__ == "__main__":

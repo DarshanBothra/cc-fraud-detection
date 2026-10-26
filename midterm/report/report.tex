@@ -294,7 +294,7 @@ farther from their home?
 
 \textbf{How they are novel:} the basic questions describe fraud rates. Ours fix, before testing, the
 smallest difference that would matter, test on a power-calculated sample rather than on all 1.85
-million rows, use an engineered distance feature, and then check (Section~5.6) whether each tested
+million rows, use an engineered distance feature, and then check (Section~5.7) whether each tested
 signal is one a classifier actually needs.
 
 %-----------------------------------------------------------------------
@@ -310,6 +310,13 @@ tests) and power $0.8$ requires 263 (amount), 383 (night share), 810 (age) and 7
 group, so 2{,}000 covers every test. The sample is disjoint from the pilot and representative: within
 each class, mean amount, age, distance and night share are within 6\% of the full data, and no
 category share differs by more than 1.1 points. Sample ids are saved in the repository.
+
+\textbf{How we picked each test.} For every test we ran all the alternatives in the plan, but the
+main test was fixed in advance from its assumptions (independent groups, response type, equal or
+unequal variances, sample size), never from which one gave the smallest p-value; choosing by
+p-value would bias the result. Part b) of each test reports the alternatives' results. They agree
+with the main test everywhere except one borderline case: in Test 5, Mann--Whitney gives $p=0.046$,
+below 0.05 but not below the Bonferroni 0.01.
 
 \textbf{Consequence.} Fixing 2{,}000 per class makes the sample's fraud rate (50\%) artificial, so
 Tests 2 and 3 compare how night-time and categories are distributed \emph{within} each class.
@@ -346,8 +353,8 @@ version.
 \toprule
 \textbf{Also considered} & \textbf{Why we did not use it} \\
 \midrule
-Two-sample $z$-test & needs the population $\sigma$; at $n=2{,}000$ it gives the same answer \\
-Pooled $t$-test & assumes equal variances, which the $F$-test rejects. Run anyway: same $t$ and decision \\
+Two-sample $z$-test & needs the population $\sigma$, which we do not know. Run anyway: $z=43.67$, same decision \\
+Pooled $t$-test & assumes equal variances, which the $F$-test rejects. Run anyway: $t=43.67$ (3{,}998), same decision \\
 Mann--Whitney $U$ & no normality assumption, but tests ranks, not the mean ratio we want; run as a check, it agrees ($p\approx10^{-285}$) \\
 \bottomrule
 \end{tabularx}}
@@ -445,7 +452,7 @@ so the approximation is valid.
 \midrule
 G-test (likelihood ratio) & asymptotically equivalent; run as a check: $G=778.7$, same decision \\
 Fisher's exact test & impractical for a $14\times2$ table with 4{,}000 rows, and unnecessary with large expected counts \\
-14 separate proportion tests & multiple comparisons; we use per-category odds ratios with intervals only as a follow-up \\
+Per-category two-proportion tests & 14 tests inflate false positives, so not the main test. Run as a post-hoc follow-up with Bonferroni ($\times14$): 12 of 14 categories differ; only \code{gas\_transport} and \code{travel} do not \\
 \bottomrule
 \end{tabularx}}
 
@@ -562,38 +569,36 @@ No evidence that fraud happens farther from home. Failing to reject is not proof
 ran TOST with bounds $\pm5$~km: it rejects non-equivalence ($p=0.0002$). The sample was powered for
 5~km, so any difference is practically negligible.
 
-%------------------------------------------------------------ summary
-\subsection*{5.6 Robustness, and do the signals matter in a classifier?}
-
-All five decisions at $\alpha=0.01$ are the same on five further independent samples (seeds
-1001--1005). As an extra, a $\chi^2$ goodness-of-fit test shows fraud is not spread over the days
-of the week like legitimate spending ($\chi^2=88.5$, df 6, $p=6\times10^{-17}$).
-
-Since the data is labelled, we fit binary classifiers on \code{fraudTrain.csv}
-(threshold and settings chosen on a 20\% validation split) and evaluate once on
-\code{fraudTest.csv} (555{,}719 rows, 2{,}145 frauds). We report precision, recall, F1 and PR-AUC,
-not accuracy: calling everything legitimate already scores 99.6\%.
-
-{\footnotesize
-\begin{tabularx}{\linewidth}{@{}Y rrrr@{}}
+\begin{table*}[!t]
+\centering\footnotesize
+\begin{tabular}{@{}llrrrrrr@{}}
 \toprule
-\textbf{Model (test file)} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} & \textbf{PR-AUC} \\
+\textbf{Model} & \textbf{Imbalance option} & \textbf{Val.\ PR-AUC} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} & \textbf{Test PR-AUC} & \textbf{ROC-AUC} \\
 \midrule
-Logistic regression, linear & 0.32 & 0.58 & 0.41 & 0.39 \\
-Logistic regression, splines & 0.64 & 0.70 & 0.67 & 0.70 \\
-Decision tree (depth 12) & 0.87 & 0.78 & 0.82 & 0.85 \\
+\csname @@input\endcsname tab_models.tex
 \bottomrule
-\end{tabularx}}
+\end{tabular}
+\caption{Stage 2: all 11 models refitted on the full training split, ordered by validation PR-AUC
+(the selection rule). Precision, recall, F1, PR-AUC and ROC-AUC are on the held-out test file.
+Bold: the chosen model.}
+\label{tab:models}
 
-\textbf{McNemar's test} ($H_0$: equal error rates): the tree is right where spline logistic
-regression is wrong 944 times, the reverse 180 times; $\chi^2=517.9$, $p\approx10^{-114}$. A paired
-bootstrap puts the tree's F1 advantage at 0.14--0.17.
+\vspace{8pt}
+\begin{tabular}{@{}lrrll@{}}
+\toprule
+\textbf{XGBoost against} & \textbf{XGB right only / other right only} & \textbf{McNemar $p$} & \textbf{F1 difference (95\% CI)} & \textbf{PR-AUC difference (95\% CI)} \\
+\midrule
+\csname @@input\endcsname tab_compare.tex
+\bottomrule
+\end{tabular}
+\caption{The chosen model against the next five by validation PR-AUC and the logistic-regression
+baseline, on the test file. McNemar's test ($H_0$: equal error rates) uses the discordant counts;
+differences are XGBoost minus the other model, with paired bootstrap intervals (200 resamples).}
+\label{tab:compare}
+\end{table*}
 
-\textbf{Ablation:} dropping each tested feature group and refitting, the fall in test PR-AUC (tree;
-spline logistic regression in brackets) is: amount 0.61 (0.48), category 0.21 (0.32), time of day
-0.11 (0.11), age 0.04 (0.01), distance 0.00 (0.00). The features with large, practically important
-differences in Tests 1--3 are the ones the models cannot do without; age, significant but small,
-adds little; distance, shown negligible by TOST, adds nothing.
+%------------------------------------------------------------ summary
+\subsection*{5.6 Summary and robustness}
 
 {\footnotesize
 \begin{tabularx}{\linewidth}{@{}L{1.3cm} L{2.6cm} Y L{1.0cm}@{}}
@@ -607,6 +612,93 @@ adds little; distance, shown negligible by TOST, adds nothing.
 5 Distance & $+1.8$ km ($-0.02$--$3.5$) & 0.053 & no \\
 \bottomrule
 \end{tabularx}}
+
+All five decisions at $\alpha=0.01$ are the same on five further independent samples (seeds
+1001--1005). As an extra, a $\chi^2$ goodness-of-fit test shows fraud is not spread over the days
+of the week like legitimate spending ($\chi^2=88.5$, df 6, $p=6\times10^{-17}$).
+
+%------------------------------------------------------------ classifiers
+\subsection*{5.7 Using the signals: choosing a classifier}
+
+Since the data is labelled, we fit supervised binary classifiers and tried \emph{every} model and
+class-imbalance option in our plan, then picked the best by a rule fixed in advance.
+
+\textbf{Set-up.} Training rows: \code{fraudTrain.csv}, split 80/20 into training (1{,}037{,}340)
+and validation (259{,}335). Test rows: \code{fraudTest.csv} (555{,}719 rows, 2{,}145 frauds; later
+months), used once, never to choose anything. Features: log amount, hour, night flag, day of week,
+age, gender, log city population, distance and 14 category dummies. Metric: PR-AUC, plus precision,
+recall and F1 at a threshold that maximises F1 on validation; not accuracy, since calling everything
+legitimate already scores 99.6\%.
+
+\textbf{Selection.} \emph{Stage 1}, on a stratified 25\% subsample of the training split: for each
+of 11 models, try four imbalance options (none; class weights; random undersampling to 1 fraud per
+10 legitimate; SMOTE to the same ratio, on training rows only), keep the best by validation PR-AUC,
+then try a small hyperparameter grid. \emph{Stage 2}: refit each model's best set-up on the full
+training split. \textbf{Rule: the final model is the one with the best validation PR-AUC.}
+
+\begin{table}[!ht]
+\centering\footnotesize
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Model} & \textbf{None} & \textbf{Class wt.} & \textbf{Under.} & \textbf{SMOTE} \\
+\midrule
+\csname @@input\endcsname tab_strategies.tex
+\bottomrule
+\end{tabular}
+\caption{Stage 1: validation PR-AUC of each imbalance option (25\% training subsample, default
+settings). Bold: chosen. $k$-NN cannot take sample weights.}
+\label{tab:strat}
+\end{table}
+
+\textbf{What the imbalance options did (Table~\ref{tab:strat}).} No single option is best.
+Class weights help only LightGBM and the random forest and badly hurt the linear models (e.g.\
+spline logistic regression 0.76~$\to$~0.31), because they distort predicted probabilities that the
+threshold already handles. SMOTE helps $k$-NN (0.59~$\to$~0.64) and is level for the MLP.
+Undersampling is never best except for Naive Bayes, the weakest model.
+
+
+
+\textbf{Result (Tables~\ref{tab:models} and~\ref{tab:compare}).} By our rule the chosen model is
+\textbf{XGBoost} (validation PR-AUC 0.953; test PR-AUC 0.875, F1 0.82, precision 0.85, recall 0.79).
+Tree ensembles and the MLP form a top group (test PR-AUC 0.87--0.90); linear models, Naive Bayes
+and $k$-NN trail far behind, because the effect of amount is not monotone and depends on the
+category, which trees capture directly. XGBoost is clearly better than spline logistic regression
+(McNemar $p\approx10^{-102}$; PR-AUC $+0.16$ to $+0.19$).
+
+\textbf{An honest caveat.} On the test file \textbf{CatBoost} is significantly better than XGBoost
+(McNemar $p=10^{-7}$; PR-AUC $0.021$--$0.030$ higher, F1 $0.013$--$0.027$ higher). The random
+forest and LightGBM also make significantly fewer errors than XGBoost at their thresholds, and
+XGBoost's F1 is not distinguishable from the single decision tree's ($p=0.78$). Validation ranked the top
+models differently from the test because our validation rows were a random split of the
+\emph{same} months as training, while the test file is \emph{later} months: every top model loses
+0.03--0.08 PR-AUC from validation to test. We keep XGBoost as the pre-registered choice; CatBoost is
+the stronger model on unseen months, but its test score is optimistic because we only know it is
+best after looking at the test file. A validation split by time would have been the better design.
+
+\textbf{Other options.} Adding a per-category fraud-rate feature (target encoding from training
+rows only) did not help: validation PR-AUC $0.953\to0.952$ for XGBoost and $0.762\to0.762$ for
+spline logistic regression, so we kept the one-hot categories.
+
+\textbf{Do the tested signals matter in the model?} Dropping each tested feature group and
+refitting, the fall in test PR-AUC (95\% bootstrap CI) is:
+
+{\footnotesize
+\begin{tabularx}{\linewidth}{@{}L{2.2cm} Y Y@{}}
+\toprule
+\textbf{Dropped} & \textbf{XGBoost} & \textbf{Spline logistic} \\
+\midrule
+Amount (T1) & 0.55 (0.53--0.57) & 0.48 (0.46--0.50) \\
+Category (T3) & 0.27 (0.25--0.29) & 0.32 (0.29--0.34) \\
+Time of day (T2) & 0.17 (0.16--0.18) & 0.11 (0.09--0.13) \\
+Age (T4) & 0.07 (0.06--0.08) & 0.007 (0.005--0.010) \\
+Distance (T5) & 0.00 ($-0.004$--$0.001$) & 0.00 (0.00--0.00) \\
+\bottomrule
+\end{tabularx}}
+
+The three signals our tests found large and practically important are the ones the models cannot
+do without; age, significant but small, adds a little (more for XGBoost, which can use it in
+interactions); distance, shown negligible by the equivalence test, adds nothing. The tests and the
+classifiers tell the same story.
 
 %-----------------------------------------------------------------------
 \section{Limitations}
@@ -622,6 +714,9 @@ adds little; distance, shown negligible by TOST, adds nothing.
   samples gave the same decisions.
   \item \textbf{No absolute fraud rates from the sample.} Stratified sampling cannot estimate
   $P(\text{fraud}\mid\cdot)$; such rates are reported only descriptively from the full data.
+  \item \textbf{Model selection.} Our validation rows came from the same months as training, so
+  validation overstated performance on later months and ranked the top models differently from
+  the test file (Section~5.7). A time-ordered validation split would fix this.
   \item \textbf{Multiple tests.} Five tests are run; we report both $\alpha=0.05$ and Bonferroni's
   $0.01$, and every decision is the same at both.
 \end{itemize}

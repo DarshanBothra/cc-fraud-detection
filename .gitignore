@@ -11,3 +11,5 @@ midterm/report/*.out
 midterm/report/*.fdb_latexmk
 midterm/report/*.fls
 __pycache__/
+catboost_info/
+midterm/src/catboost_info/

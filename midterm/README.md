@@ -21,7 +21,8 @@ python run_all.py          # or run the steps one by one, in this order:
 python prepare.py          # load, quality checks, feature engineering -> results/prepared.parquet
 python eda.py              # EDA figures -> figures/eda_*.pdf
 python hypothesis_tests.py # pilot sample, power calculation, stratified sample, tests 1-5
-python models.py           # logistic regression + decision tree, McNemar, ablation (~2-3 min)
+python models.py           # 11 models x 4 imbalance options, selection, McNemar, ablation (~20 min)
+python report_tables.py    # writes the model tables that report/report.tex reads
 ```
 
 Everything is seeded (`SEED = 42`, pilot seed 7), so reruns give the same numbers.
@@ -33,24 +34,25 @@ Everything is seeded (`SEED = 42`, pilot seed 7), so reruns give the same number
 | Preparation | `src/prepare.py` | Missing values and duplicate checks, derived features (hour, night flag, day of week, age at transaction, haversine customer–merchant distance, log amount), PII and identifiers dropped. `results/data_summary.json` |
 | EDA | `src/eda.py` | Five EDA plots plus a before/after plot of the log transform. `results/eda.json` |
 | Hypothesis tests | `src/hypothesis_tests.py` | **Tests run on a sample, not the full data.** A pilot sample (500 per class) gives the standard deviations for a power calculation (α = 0.01 Bonferroni, power 0.8). The test sample is 2,000 fraud + 2,000 legitimate transactions drawn without replacement and disjoint from the pilot. Its ids are in `results/test_sample_trans_num.csv`. The script then runs five tests with alternative tests and effect sizes, repeats them on 5 more samples for robustness, and writes `results/hypothesis_tests.json` |
-| Models | `src/models.py` | Train on `fraudTrain.csv`, choose the threshold on a 20% validation split of it, and evaluate once on `fraudTest.csv`. Compares linear and spline logistic regression with a decision tree, using McNemar's test and a paired bootstrap. Also runs a with/without ablation for each tested feature. `results/models.json`, `figures/model_pr_curves.pdf` |
+| Models | `src/models.py` | Every model and class-imbalance option in the plan, compared fairly. Models: linear and spline logistic regression, Gaussian Naive Bayes, k-nearest neighbours, decision tree, random forest, LightGBM, XGBoost, CatBoost, linear SVM and a neural network (MLP). Imbalance options: none, class weights, random undersampling and SMOTE (both resample to 1 fraud per 10 legitimate, training rows only). Training uses `fraudTrain.csv`, split 80/20 into training and validation. Stage 1 picks each model's imbalance option, then its hyperparameters, on a 25% subsample, scored by validation PR-AUC. Stage 2 refits on the full training split, sets the threshold on validation and evaluates once on `fraudTest.csv`. The final model is the best by **validation** PR-AUC. The step also checks a per-category fraud-rate feature, runs McNemar's test and a paired bootstrap against the next five models and the logistic-regression baseline, and does a with/without ablation of each tested feature. Writes `results/models.json` and `figures/model_pr_curves.pdf`. Takes about 20 minutes. |
 
 ### Hypothesis tests (on the 2,000 + 2,000 sample)
 
-1. **Amount**: Welch t-test on log(1 + amt), one-sided. An F-test justifies Welch, and Mann–Whitney is the robustness check.
+1. **Amount**: Welch t-test on log(1 + amt), one-sided. An F-test justifies Welch; the pooled t-test, z-test and Mann–Whitney U are also run for comparison.
 2. **Night (22:00–03:59)**: two-proportion z-test on P(night | class), one-sided, with an odds ratio. The χ² and Fisher tests are shown for comparison.
-3. **Category**: χ² test of independence (14 × 2, df = 13), with Cramér's V and per-category odds ratios. The G-test is shown for comparison.
+3. **Category**: χ² test of independence (14 × 2, df = 13), with Cramér's V and per-category odds ratios. The G-test is shown for comparison, plus post-hoc per-category two-proportion tests with Bonferroni correction.
 4. **Age**: Welch t-test, two-sided, with Mann–Whitney, KS, and TOST equivalence within ±3 years.
 5. **Distance**: Welch t-test, two-sided, with Mann–Whitney, KS, and TOST equivalence within ±5 km.
 
 Also included: a χ² goodness-of-fit test of fraud across days of the week.
 
-### Model choices
+### Running the models on macOS without conda
 
-All model choices were made on the validation split, never on the test file.
-- **Class weighting:** `class_weight="balanced"` lowered validation PR-AUC for both models, so class imbalance is handled by tuning the decision threshold instead.
-- **Logistic regression:** uses cubic-spline terms for amount, hour and age, because the effect of amount on fraud is not monotone.
-- **Decision tree:** depth 12, at least 20 samples per leaf.
+LightGBM and XGBoost need the OpenMP runtime (`libomp`). The conda environment includes it (`llvm-openmp`). In a plain virtualenv on macOS you can reuse scikit-learn's bundled copy:
+
+```bash
+DYLD_LIBRARY_PATH=$(python -c "import sklearn,os;print(os.path.join(os.path.dirname(sklearn.__file__),'.dylibs'))") python models.py
+```
 
 ## Layout
 

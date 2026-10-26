@@ -127,7 +127,9 @@ def run_tests(s, full_legit_dow_share):
         "ratio_ci95": [float(np.exp(w["ci95"][0])), float(np.exp(w["ci95"][1]))],
         "matters_threshold_ratio": 1.5,
         "matters": bool(np.exp(w["ci95"][0]) >= 1.5),
-        "pooled_t": {"t": pooled.statistic, "p": pooled.pvalue},
+        "pooled_t": {"t": pooled.statistic, "df": len(f) + len(l) - 2, "p": pooled.pvalue},
+        # z-test: same statistic as Welch, but referred to the normal distribution (sigma treated as known)
+        "z_test": {"z": w["diff"] / w["se"], "p": float(stats.norm.sf(w["diff"] / w["se"]))},
         "mann_whitney": {"U": mw.statistic, "p": mw.pvalue},
         "median_amt": {"fraud": f.amt.median(), "legit": l.amt.median()},
     }
@@ -165,11 +167,21 @@ def run_tests(s, full_legit_dow_share):
         per_cat[cat] = {"fraud_count": int(a), "legit_count": int(c),
                         "share_in_fraud": a / ct[1].sum(), "share_in_legit": c / ct[0].sum(),
                         "odds_ratio": o, "or_ci95": ci, "matters": bool(ci[0] >= OR_MATTERS)}
+    # post-hoc: per-category two-proportion z-tests (share among frauds vs among legit), Bonferroni over 14
+    n_f, n_l = ct[1].sum(), ct[0].sum()
+    for cat in ct.index:
+        x_f, x_l = ct.loc[cat, 1], ct.loc[cat, 0]
+        pool = (x_f + x_l) / (n_f + n_l)
+        zc = (x_f / n_f - x_l / n_l) / np.sqrt(pool * (1 - pool) * (1 / n_f + 1 / n_l))
+        pc = 2 * stats.norm.sf(abs(zc))
+        per_cat[cat]["posthoc_z"] = zc
+        per_cat[cat]["posthoc_p_bonferroni"] = min(1.0, pc * len(ct.index))
     out["test3_category"] = {
         "chi2": chi2, "df": dof, "p": p, **decision(p), "min_expected": float(exp.min()),
         "cramers_v": float(np.sqrt(chi2 / (n * (min(ct.shape) - 1)))),
         "g_test": {"G": g, "p": p_g}, "per_category": per_cat,
         "categories_that_matter": [k for k, v in per_cat.items() if v["matters"]],
+        "posthoc_significant_bonferroni": [k for k, v in per_cat.items() if v["posthoc_p_bonferroni"] < ALPHA],
     }
 
     # Test 4: age, two-sided

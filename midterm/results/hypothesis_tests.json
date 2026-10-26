@@ -100,6 +100,11 @@
       "matters": true,
       "pooled_t": {
         "t": 43.668122289839395,
+        "df": 3998,
+        "p": 0.0
+      },
+      "z_test": {
+        "z": 43.6681222898394,
         "p": 0.0
       },
       "mann_whitney": {
@@ -162,7 +167,9 @@
             0.2731813616335926,
             0.49118611825136066
           ],
-          "matters": false
+          "matters": false,
+          "posthoc_z": -6.953307722496462,
+          "posthoc_p_bonferroni": 4.9954684790161484e-11
         },
         "food_dining": {
           "fraud_count": 38,
@@ -174,7 +181,9 @@
             0.17617775029229155,
             0.3645296492834144
           ],
-          "matters": false
+          "matters": false,
+          "posthoc_z": -7.9322318739087745,
+          "posthoc_p_bonferroni": 3.013388992003269e-14
         },
         "gas_transport": {
           "fraud_count": 172,
@@ -186,7 +195,9 @@
             0.5993961217556657,
             0.9100828598142555
           ],
-          "matters": false
+          "matters": false,
+          "posthoc_z": -2.8523995890636256,
+          "posthoc_p_bonferroni": 0.06074672572894596
         },
         "grocery_net": {
           "fraud_count": 35,
@@ -198,7 +209,9 @@
             0.35515329641509114,
             0.8174211815644907
           ],
-          "matters": false
+          "matters": false,
+          "posthoc_z": -2.951361591231035,
+          "posthoc_p_bonferroni": 0.044292682524277066
         },
         "grocery_pos": {
           "fraud_count": 465,
@@ -210,7 +223,9 @@
             2.668767654208264,
             3.883952141535778
           ],
-          "matters": true
+          "matters": true,
+          "posthoc_z": 12.660896723045754,
+          "posthoc_p_bonferroni": 1.3633284871257273e-35
         },
         "health_fitness": {
           "fraud_count": 39,
@@ -222,7 +237,9 @@
             0.17764923554495862,
             0.36438669176531735
           ],
-          "matters": false
+          "matters": false,
+          "posthoc_z": -8.00060384194523,
+          "posthoc_p_bonferroni": 1.7333473956431382e-14
         },
         "home": {
           "fraud_count": 38,
@@ -234,7 +251,9 @@
             0.12875551624165674,
             0.26134472692058147
           ],
-          "matters": false
+          "matters": false,
+          "posthoc_z": -10.41298922764661,
+          "posthoc_p_bonferroni": 3.0284863218929642e-24
         },
         "kids_pets": {
           "fraud_count": 62,
@@ -246,7 +265,9 @@
             0.28172740740099733,
             0.5147259686016739
           ],
-          "matters": false
+          "matters": false,
+          "posthoc_z": -6.4917966378131835,
+          "posthoc_p_bonferroni": 1.1874618461703801e-09
         },
         "misc_net": {
           "fraud_count": 248,
@@ -258,7 +279,9 @@
             1.960204605110572,
             3.1371010348206503
           ],
-          "matters": false
+          "matters": false,
+          "posthoc_z": 7.773987682995691,
+          "posthoc_p_bonferroni": 1.0647439260714699e-13
         },
         "misc_pos": {
           "fraud_count": 65,
@@ -270,7 +293,9 @@
             0.3865888386635758,
             0.7164215975436191
           ],
-          "matters": false
+          "matters": false,
+          "posthoc_z": -4.140564457294195,
+          "posthoc_p_bonferroni": 0.00048503313062080964
         },
         "personal_care": {
           "fraud_count": 50,
@@ -282,7 +307,9 @@
             0.2506728082094381,
             0.4850071433738013
           ],
-          "matters": false
+          "matters": false,
+          "posthoc_z": -6.516209555386552,
+          "posthoc_p_bonferroni": 1.009487132028858e-09
         },
         "shopping_net": {
           "fraud_count": 460,
@@ -294,7 +321,9 @@
             3.0480161583631076,
             4.517490598243814
           ],
-          "matters": true
+          "matters": true,
+          "posthoc_z": 13.687301802818201,
+          "posthoc_p_bonferroni": 1.6928314486857296e-41
         },
         "shopping_pos": {
           "fraud_count": 222,
@@ -306,7 +335,9 @@
             1.130682850419088,
             1.7280618726800432
           ],
-          "matters": false
+          "matters": false,
+          "posthoc_z": 3.105776952366041,
+          "posthoc_p_bonferroni": 0.026569173171820993
         },
         "travel": {
           "fraud_count": 41,
@@ -318,12 +349,28 @@
             0.4599586954543428,
             1.0306876100366225
           ],
-          "matters": false
+          "matters": false,
+          "posthoc_z": -1.8229308607505992,
+          "posthoc_p_bonferroni": 0.9563940841125838
         }
       },
       "categories_that_matter": [
         "grocery_pos",
         "shopping_net"
+      ],
+      "posthoc_significant_bonferroni": [
+        "entertainment",
+        "food_dining",
+        "grocery_net",
+        "grocery_pos",
+        "health_fitness",
+        "home",
+        "kids_pets",
+        "misc_net",
+        "misc_pos",
+        "personal_care",
+        "shopping_net",
+        "shopping_pos"
       ]
     },
     "test4_age": {

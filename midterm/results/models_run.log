@@ -1,0 +1,82 @@
+19:37:40 [select] Logistic regression (linear)     none          val PR-AUC 0.4543 (0s)
+19:37:41 [select] Logistic regression (linear)     class_weight  val PR-AUC 0.2798 (0s)
+19:37:41 [select] Logistic regression (linear)     undersample   val PR-AUC 0.3726 (0s)
+19:37:41 [select] Logistic regression (linear)     smote         val PR-AUC 0.3324 (0s)
+19:37:41 [select] Logistic regression (linear)     {'C': 0.1}                 val PR-AUC 0.4531
+19:37:41 [select] Logistic regression (splines)    none          val PR-AUC 0.7613 (0s)
+19:37:42 [select] Logistic regression (splines)    class_weight  val PR-AUC 0.3149 (0s)
+19:37:42 [select] Logistic regression (splines)    undersample   val PR-AUC 0.6246 (0s)
+19:37:42 [select] Logistic regression (splines)    smote         val PR-AUC 0.5702 (1s)
+19:37:43 [select] Logistic regression (splines)    {'n_knots': 5}             val PR-AUC 0.5846
+19:37:43 [select] Naive Bayes (Gaussian)           none          val PR-AUC 0.2298 (0s)
+19:37:43 [select] Naive Bayes (Gaussian)           class_weight  val PR-AUC 0.2298 (0s)
+19:37:43 [select] Naive Bayes (Gaussian)           undersample   val PR-AUC 0.2510 (0s)
+19:37:43 [select] Naive Bayes (Gaussian)           smote         val PR-AUC 0.2346 (0s)
+19:37:43 [select] Naive Bayes (Gaussian)           {'var_smoothing': 1e-06}   val PR-AUC 0.2569
+19:37:51 [select] k-nearest neighbours             none          val PR-AUC 0.5858 (8s)
+19:37:53 [select] k-nearest neighbours             undersample   val PR-AUC 0.5598 (2s)
+19:38:02 [select] k-nearest neighbours             smote         val PR-AUC 0.6357 (9s)
+19:38:12 [select] k-nearest neighbours             {'k': 50}                  val PR-AUC 0.5861
+19:38:12 [select] Decision tree                    none          val PR-AUC 0.8475 (1s)
+19:38:13 [select] Decision tree                    class_weight  val PR-AUC 0.7009 (1s)
+19:38:13 [select] Decision tree                    undersample   val PR-AUC 0.7239 (0s)
+19:38:14 [select] Decision tree                    smote         val PR-AUC 0.8153 (1s)
+19:38:15 [select] Decision tree                    {'max_depth': 8}           val PR-AUC 0.8473
+19:38:16 [select] Decision tree                    {'max_depth': 16}          val PR-AUC 0.8436
+19:38:21 [select] Random forest                    none          val PR-AUC 0.8978 (5s)
+19:38:25 [select] Random forest                    class_weight  val PR-AUC 0.9059 (4s)
+19:38:26 [select] Random forest                    undersample   val PR-AUC 0.8710 (1s)
+19:38:33 [select] Random forest                    smote         val PR-AUC 0.8934 (8s)
+19:38:37 [select] Random forest                    {'min_samples_leaf': 5}    val PR-AUC 0.8930
+19:38:40 [select] LightGBM                         none          val PR-AUC 0.7091 (3s)
+19:38:43 [select] LightGBM                         class_weight  val PR-AUC 0.9214 (3s)
+19:38:45 [select] LightGBM                         undersample   val PR-AUC 0.8873 (2s)
+19:38:49 [select] LightGBM                         smote         val PR-AUC 0.9168 (4s)
+19:38:52 [select] LightGBM                         {'learning_rate': 0.1}     val PR-AUC 0.9245
+19:38:54 [select] XGBoost                          none          val PR-AUC 0.9214 (2s)
+19:38:56 [select] XGBoost                          class_weight  val PR-AUC 0.9168 (2s)
+19:38:56 [select] XGBoost                          undersample   val PR-AUC 0.8921 (1s)
+19:38:59 [select] XGBoost                          smote         val PR-AUC 0.9130 (2s)
+19:39:01 [select] XGBoost                          {'learning_rate': 0.1}     val PR-AUC 0.9184
+19:39:07 [select] CatBoost                         none          val PR-AUC 0.9251 (6s)
+19:39:12 [select] CatBoost                         class_weight  val PR-AUC 0.9194 (6s)
+19:39:14 [select] CatBoost                         undersample   val PR-AUC 0.9002 (2s)
+19:39:22 [select] CatBoost                         smote         val PR-AUC 0.9122 (8s)
+19:39:29 [select] CatBoost                         {'learning_rate': 0.1}     val PR-AUC 0.9239
+19:39:30 [select] Linear SVM                       none          val PR-AUC 0.4211 (0s)
+19:39:30 [select] Linear SVM                       class_weight  val PR-AUC 0.2621 (0s)
+19:39:30 [select] Linear SVM                       undersample   val PR-AUC 0.3709 (0s)
+19:39:30 [select] Linear SVM                       smote         val PR-AUC 0.3339 (0s)
+19:39:31 [select] Linear SVM                       {'C': 0.1}                 val PR-AUC 0.4208
+19:39:35 [select] Neural network (MLP)             none          val PR-AUC 0.8805 (5s)
+19:39:40 [select] Neural network (MLP)             class_weight  val PR-AUC 0.8526 (4s)
+19:39:40 [select] Neural network (MLP)             undersample   val PR-AUC 0.6621 (0s)
+19:39:46 [select] Neural network (MLP)             smote         val PR-AUC 0.8811 (6s)
+19:39:52 [select] Neural network (MLP)             {'hidden': (64,)}          val PR-AUC 0.8854
+19:39:53 [final]  Logistic regression (linear)     val PR-AUC 0.4595  test PR-AUC 0.3915  F1 0.4142
+19:39:54 [final]  Logistic regression (splines)    val PR-AUC 0.7618  test PR-AUC 0.7025  F1 0.6686
+19:39:55 [final]  Naive Bayes (Gaussian)           val PR-AUC 0.2571  test PR-AUC 0.2046  F1 0.3642
+19:40:30 [final]  k-nearest neighbours             val PR-AUC 0.6919  test PR-AUC 0.6155  F1 0.6143
+19:40:34 [final]  Decision tree                    val PR-AUC 0.9033  test PR-AUC 0.8450  F1 0.8217
+19:41:03 [final]  Random forest                    val PR-AUC 0.9308  test PR-AUC 0.8827  F1 0.8406
+19:41:16 [final]  LightGBM                         val PR-AUC 0.9516  test PR-AUC 0.8703  F1 0.8268
+19:41:27 [final]  XGBoost                          val PR-AUC 0.9531  test PR-AUC 0.8752  F1 0.8229
+19:41:49 [final]  CatBoost                         val PR-AUC 0.9434  test PR-AUC 0.9010  F1 0.8423
+19:41:51 [final]  Linear SVM                       val PR-AUC 0.4244  test PR-AUC 0.3636  F1 0.4452
+19:42:15 [final]  Neural network (MLP)             val PR-AUC 0.9103  test PR-AUC 0.8821  F1 0.8277
+19:42:15 chosen: XGBoost runner-up: LightGBM
+19:42:23 [cat-rate] XGBoost: val PR-AUC 0.9531 -> 0.9519
+19:42:24 [cat-rate] Logistic regression (splines): val PR-AUC 0.7618 -> 0.7623
+19:45:21 [compare] XGBoost vs LightGBM: McNemar p=0.00179, F1 diff CI [-0.013  0.004], PR-AUC diff CI [-0.    0.01]
+19:45:21 [compare] XGBoost vs CatBoost: McNemar p=8.58e-08, F1 diff CI [-0.027 -0.013], PR-AUC diff CI [-0.03  -0.021]
+19:45:21 [compare] XGBoost vs Random forest: McNemar p=5.45e-05, F1 diff CI [-0.028 -0.01 ], PR-AUC diff CI [-0.014 -0.001]
+19:45:21 [compare] XGBoost vs Neural network (MLP): McNemar p=0.154, F1 diff CI [-0.015  0.004], PR-AUC diff CI [-0.014  0.001]
+19:45:21 [compare] XGBoost vs Decision tree: McNemar p=0.779, F1 diff CI [-0.009  0.009], PR-AUC diff CI [0.023 0.04 ]
+19:45:21 [compare] XGBoost vs Logistic regression (splines): McNemar p=2.52e-102, F1 diff CI [0.14  0.168], PR-AUC diff CI [0.16  0.187]
+19:45:57 [ablation] amount (test 1) {'XGBoost': 0.5539, 'Logistic regression (splines)': 0.481}
+19:46:33 [ablation] time of day (test 2) {'XGBoost': 0.169, 'Logistic regression (splines)': 0.109}
+19:47:05 [ablation] category (test 3) {'XGBoost': 0.2724, 'Logistic regression (splines)': 0.3163}
+19:47:40 [ablation] age (test 4) {'XGBoost': 0.0715, 'Logistic regression (splines)': 0.0073}
+19:48:14 [ablation] distance (test 5) {'XGBoost': -0.0014, 'Logistic regression (splines)': -0.0}
+19:48:15 done
+exit 0
