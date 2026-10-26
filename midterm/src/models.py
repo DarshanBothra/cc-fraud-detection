@@ -16,6 +16,7 @@ Writes results/models.json and figures/model_pr_curves.pdf.
 LightGBM and XGBoost need the OpenMP runtime (libomp). The conda environment has it; in a plain
 venv on macOS, set DYLD_LIBRARY_PATH to scikit-learn's bundled copy (see README).
 """
+import inspect
 import time
 import warnings
 
@@ -28,14 +29,14 @@ import pandas as pd
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (average_precision_score, confusion_matrix, f1_score,
                              precision_recall_curve, precision_score, recall_score, roc_auc_score)
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import SplineTransformer, StandardScaler
 from sklearn.svm import LinearSVC
@@ -69,6 +70,7 @@ def _spline_lr(n_knots):
     return make_pipeline(ct, LogisticRegression(max_iter=3000))
 
 
+# Boosting libraries are imported lazily so the rest of the module works without them.
 def _lightgbm(p):
     import lightgbm as lgb
     return lgb.LGBMClassifier(n_estimators=500, num_leaves=63, learning_rate=p["learning_rate"],
@@ -126,12 +128,12 @@ def drop_group(X, group):
 
 def resample(X, y, strategy):
     """Returns (X, y, sample_weight). Resampling touches only the data passed in (training rows)."""
+    w = None
     if strategy == "undersample":
         X, y = RandomUnderSampler(sampling_strategy=RESAMPLE_RATIO, random_state=SEED).fit_resample(X, y)
     elif strategy == "smote":
         X, y = SMOTE(sampling_strategy=RESAMPLE_RATIO, random_state=SEED).fit_resample(X, y)
-    w = None
-    if strategy == "class_weight":
+    elif strategy == "class_weight":
         pos = y.mean()
         w = np.where(y == 1, 0.5 / pos, 0.5 / (1 - pos))
     return X, np.asarray(y), w
@@ -144,18 +146,20 @@ def cap_rows(X, y, cap):
     return X, y
 
 
+def final_step(est):
+    return est.steps[-1][1] if isinstance(est, Pipeline) else est
+
+
 def fit(name, params, X, y, strategy):
     build, _, cap = MODELS[name]
-    Xr, yr, w = resample(X, y, strategy)
-    if w is None:
-        Xr, yr = cap_rows(Xr, yr, cap)
+    X, y, w = resample(X, y, strategy)
     est = build(params)
     if w is None:
-        est.fit(Xr, yr)
+        est.fit(*cap_rows(X, y, cap))
     elif isinstance(est, Pipeline):
-        est.fit(Xr, yr, **{f"{est.steps[-1][0]}__sample_weight": w})
+        est.fit(X, y, **{f"{est.steps[-1][0]}__sample_weight": w})
     else:
-        est.fit(Xr, yr, sample_weight=w)
+        est.fit(X, y, sample_weight=w)
     return est
 
 
@@ -166,10 +170,8 @@ def score(est, X):
 def supports_weights(name):
     if name == "k-nearest neighbours":
         return False
-    est = MODELS[name][0](MODELS[name][1][0])
-    last = est.steps[-1][1] if isinstance(est, Pipeline) else est
-    import inspect
-    return "sample_weight" in inspect.signature(last.fit).parameters
+    build, grid, _ = MODELS[name]
+    return "sample_weight" in inspect.signature(final_step(build(grid[0])).fit).parameters
 
 
 def best_threshold(y, s):
@@ -188,7 +190,10 @@ def test_metrics(y, s, thr):
 
 def paired_bootstrap(y, a, b, fn, n_boot=N_BOOT):
     rng = np.random.default_rng(SEED)
-    diffs = [fn(y[i], a[i]) - fn(y[i], b[i]) for i in (rng.integers(0, len(y), len(y)) for _ in range(n_boot))]
+    diffs = []
+    for _ in range(n_boot):
+        i = rng.integers(0, len(y), len(y))
+        diffs.append(fn(y[i], a[i]) - fn(y[i], b[i]))
     return [float(np.percentile(diffs, 2.5)), float(np.percentile(diffs, 97.5))]
 
 
@@ -220,31 +225,29 @@ def main():
            "frauds_test": int(yte.sum()), "baseline_all_legit_accuracy": float(1 - yte.mean()),
            "features": list(X.columns), "strategies": STRATEGIES, "resample_ratio": RESAMPLE_RATIO}
 
-    # ---- stage 1: imbalance strategy, then hyperparameters, on the selection subsample
+    # stage 1: imbalance strategy, then hyperparameters, on the selection subsample
     selection = {}
     for name, (_, grid, _) in MODELS.items():
-        rec = {"strategy_val_prauc": {}, "grid_val_prauc": {}}
+        by_strategy, by_params = {}, {}
         for strat in STRATEGIES:
             if strat == "class_weight" and not supports_weights(name):
-                rec["strategy_val_prauc"][strat] = None
+                by_strategy[strat] = None
                 continue
             t0 = time.time()
             est = fit(name, grid[0], Xsel, ysel, strat)
-            rec["strategy_val_prauc"][strat] = average_precision_score(yval, score(est, Xval))
-            log(f"[select] {name:32s} {strat:13s} val PR-AUC {rec['strategy_val_prauc'][strat]:.4f} ({time.time()-t0:.0f}s)")
-        rec["strategy"] = max((k for k, v in rec["strategy_val_prauc"].items() if v is not None),
-                              key=lambda k: rec["strategy_val_prauc"][k])
-        rec["grid_val_prauc"][str(grid[0])] = rec["strategy_val_prauc"][rec["strategy"]]
+            by_strategy[strat] = average_precision_score(yval, score(est, Xval))
+            log(f"[select] {name:32s} {strat:13s} val PR-AUC {by_strategy[strat]:.4f} ({time.time()-t0:.0f}s)")
+        strategy = max((k for k, v in by_strategy.items() if v is not None), key=by_strategy.get)
+        by_params[str(grid[0])] = by_strategy[strategy]
         for params in grid[1:]:
-            est = fit(name, params, Xsel, ysel, rec["strategy"])
-            rec["grid_val_prauc"][str(params)] = average_precision_score(yval, score(est, Xval))
-            log(f"[select] {name:32s} {str(params):26s} val PR-AUC {rec['grid_val_prauc'][str(params)]:.4f}")
-        best_params = max(grid, key=lambda p: rec["grid_val_prauc"][str(p)])
-        rec["params"] = best_params
-        selection[name] = rec
+            est = fit(name, params, Xsel, ysel, strategy)
+            by_params[str(params)] = average_precision_score(yval, score(est, Xval))
+            log(f"[select] {name:32s} {str(params):26s} val PR-AUC {by_params[str(params)]:.4f}")
+        selection[name] = {"strategy_val_prauc": by_strategy, "grid_val_prauc": by_params, "strategy": strategy,
+                           "params": max(grid, key=lambda p: by_params[str(p)])}
     out["selection"] = {k: {**v, "params": str(v["params"])} for k, v in selection.items()}
 
-    # ---- stage 2: refit on the full training split, threshold on validation, evaluate on test
+    # stage 2: refit on the full training split, threshold on validation, evaluate on test
     final, scores_te, preds_te, fitted = {}, {}, {}, {}
     for name in MODELS:
         t0 = time.time()
@@ -265,7 +268,7 @@ def main():
     out["chosen_model"] = best
     log("chosen:", best, "runner-up:", runner_up)
 
-    # ---- per-category fraud rate as an extra feature (target encoding from the training split only)
+    # per-category fraud rate as an extra feature (target encoding from the training split only)
     rate = pd.Series(ytr, index=Xtr.index).groupby(df.loc[Xtr.index, "category"]).mean()
     add_rate = lambda Xp: Xp.assign(cat_fraud_rate=df.loc[Xp.index, "category"].map(rate).values)
     out["category_rate_feature"] = {}
@@ -275,8 +278,8 @@ def main():
         out["category_rate_feature"][name] = {"val_pr_auc_without": final[name]["val_pr_auc"], "val_pr_auc_with": v}
         log(f"[cat-rate] {name}: val PR-AUC {final[name]['val_pr_auc']:.4f} -> {v:.4f}")
 
-    # ---- statistical comparison of models on the test file
-    # chosen model against the next five by validation PR-AUC, the baseline and the decision tree
+    # statistical comparison on the test file: chosen model against the next five by
+    # validation PR-AUC, the baseline and the decision tree
     others = [o for o in dict.fromkeys(ranking[1:6] + [BASELINE, "Decision tree"]) if o != best]
     out["comparisons"] = [compare(yte, best, preds_te[best], scores_te[best], o, preds_te[o], scores_te[o])
                           for o in others]
@@ -284,37 +287,37 @@ def main():
         log(f"[compare] {best} vs {c['b']}: McNemar p={c['mcnemar_p']:.3g}, "
             f"F1 diff CI {np.round(c['f1_diff_a_minus_b_ci95'], 3)}, PR-AUC diff CI {np.round(c['prauc_diff_a_minus_b_ci95'], 3)}")
 
-    # ---- interpretation
-    est = fitted[best]
-    last = est.steps[-1][1] if isinstance(est, Pipeline) else est
+    last = final_step(fitted[best])
     if hasattr(last, "feature_importances_"):
         imp = np.asarray(last.feature_importances_, dtype=float)
         out["chosen_feature_importances"] = dict(sorted(zip(X.columns, (imp / imp.sum()).round(4)), key=lambda kv: -kv[1]))
 
-    # ---- ablation: drop each tested feature group, refit, fall in test PR-AUC
+    # ablation: drop each tested feature group, refit, fall in test PR-AUC
     ablation = {}
     for group in GROUPS:
         row = {}
         for name in dict.fromkeys([best, BASELINE]):
-            m = fit(name, selection[name]["params"], drop_group(Xtr, group), ytr, selection[name]["strategy"])
-            s = score(m, drop_group(Xte, group))
-            row[name] = {"pr_auc_without": average_precision_score(yte, s),
-                         "pr_auc_drop": final[name]["pr_auc"] - average_precision_score(yte, s),
+            est = fit(name, selection[name]["params"], drop_group(Xtr, group), ytr, selection[name]["strategy"])
+            s = score(est, drop_group(Xte, group))
+            pr_auc = average_precision_score(yte, s)
+            row[name] = {"pr_auc_without": pr_auc,
+                         "pr_auc_drop": final[name]["pr_auc"] - pr_auc,
                          "drop_ci95": paired_bootstrap(yte, scores_te[name], s, average_precision_score, n_boot=100)}
         ablation[group] = row
         log("[ablation]", group, {k: round(v["pr_auc_drop"], 4) for k, v in row.items()})
     out["ablation"] = ablation
 
-    # ---- figure: precision-recall curves of all final models
     fig, ax = plt.subplots(figsize=(3.4, 3.0))
     cmap = plt.get_cmap("tab20")
     for i, name in enumerate(ranking):
         p, r, _ = precision_recall_curve(yte, scores_te[name])
-        lw = 2.0 if name == best else 0.9
-        ax.plot(r, p, lw=lw, color=cmap(i), label=f"{name} ({final[name]['pr_auc']:.2f})")
-    ax.set_xlabel("recall"); ax.set_ylabel("precision")
+        ax.plot(r, p, lw=2.0 if name == best else 0.9, color=cmap(i), label=f"{name} ({final[name]['pr_auc']:.2f})")
+    ax.set_xlabel("recall")
+    ax.set_ylabel("precision")
     ax.legend(frameon=False, fontsize=5, loc="lower left")
-    fig.tight_layout(); fig.savefig(FIGURES / "model_pr_curves.pdf"); plt.close(fig)
+    fig.tight_layout()
+    fig.savefig(FIGURES / "model_pr_curves.pdf")
+    plt.close(fig)
 
     save_json(out, "models.json")
     log("done")

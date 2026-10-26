@@ -27,13 +27,14 @@ def main():
 
     raw_rows = len(df)
     raw_cols = len(pd.read_csv(DATASET / "fraudTrain.csv", nrows=0).columns)  # includes unnamed index
+    missing = df.isna().sum()
     summary = {
         "rows_train": len(train), "rows_test": len(test), "rows_total": raw_rows,
         "raw_columns_incl_index": raw_cols,
         "frauds_train": int(train.is_fraud.sum()), "frauds_test": int(test.is_fraud.sum()),
         "frauds_total": int(df.is_fraud.sum()), "fraud_rate": float(df.is_fraud.mean()),
-        "missing_values_total": int(df.isna().sum().sum()),
-        "missing_by_column": {k: int(v) for k, v in df.isna().sum().items() if v},
+        "missing_values_total": int(missing.sum()),
+        "missing_by_column": {k: int(v) for k, v in missing.items() if v},
         "duplicate_trans_num": int(df.trans_num.duplicated().sum()),
         "duplicate_rows": int(df.drop(columns=["split"]).duplicated().sum()),
         "n_categories": int(df.category.nunique()),

@@ -15,22 +15,22 @@ SEED = 42
 NIGHT_HOURS = {22, 23, 0, 1, 2, 3}
 
 
+def _to_builtin(x):
+    if isinstance(x, np.integer):
+        return int(x)
+    if isinstance(x, np.floating):
+        return float(x)
+    if isinstance(x, np.ndarray):
+        return x.tolist()
+    if isinstance(x, np.bool_):
+        return bool(x)
+    raise TypeError(type(x))
+
+
 def save_json(obj, name):
     RESULTS.mkdir(parents=True, exist_ok=True)
     with open(RESULTS / name, "w") as f:
         json.dump(obj, f, indent=2, default=_to_builtin)
-
-
-def _to_builtin(x):
-    if isinstance(x, (np.integer,)):
-        return int(x)
-    if isinstance(x, (np.floating,)):
-        return float(x)
-    if isinstance(x, np.ndarray):
-        return x.tolist()
-    if isinstance(x, (np.bool_,)):
-        return bool(x)
-    raise TypeError(type(x))
 
 
 def haversine_km(lat1, lon1, lat2, lon2):
