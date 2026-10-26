@@ -1,0 +1,268 @@
+\documentclass[10pt]{article}
+\usepackage[a4paper,margin=0.8in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,tabularx}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=*}
+\graphicspath{{../figures/}}
+\newcommand{\pz}{p<10^{-300}}
+
+\title{What Separates a Fraudulent Card Transaction from a Normal One?\\[2pt]
+\large CSE558 Data Science --- Midterm Project Report}
+\author{Group \emph{Null \& Void}\\ Darshan Bothra (2024176), Piyush Keshan (2023376), Virat Yadav (2024622)}
+\date{October 2026}
+
+\begin{document}
+\maketitle
+
+\noindent\textbf{Code and README:} \url{https://github.com/DarshanBothra/cc-fraud-detection/tree/main/midterm}
+(\texttt{midterm/README.md}; all steps run with \texttt{python run\_all.py}, fully seeded).
+
+\section{Dataset}
+We use the Kaggle \emph{Credit Card Transactions Fraud Detection Dataset}
+(\url{https://www.kaggle.com/datasets/kartik2112/fraud-detection}, CC0), generated with Brandon Harris's
+Sparkov simulator. It contains card transactions of 999 customers at 693 merchants from 1~Jan~2019 to 31~Dec~2020,
+split by the author into \texttt{fraudTrain.csv} (1,296,675 rows) and \texttt{fraudTest.csv} (555,719 rows).
+We combine both: \textbf{1,852,394 rows} with a ground-truth label \texttt{is\_fraud};
+9,651 are frauds (0.52\%), so the classes are heavily imbalanced.
+
+\paragraph{Size rule.} Raw: $1{,}852{,}394 \times 23 = 42{,}605{,}062$ cells (22 data columns plus an index).
+After encoding (Section~\ref{sec:prep}) we keep 14 numeric/derived columns and one-hot encode the
+14 merchant categories, giving 28 columns: $1{,}852{,}394 \times 28 = 51{,}867{,}032 \geq 3{,}000{,}000$.
+
+\paragraph{Features and their meaning.} \texttt{amt}: charge in USD. \texttt{category}: merchant type
+(e.g.\ \texttt{grocery\_pos} = in-store groceries, \texttt{shopping\_net} = online shopping).
+\texttt{trans\_date\_trans\_time}: timestamp. \texttt{dob}: cardholder's date of birth (gives age at purchase).
+\texttt{lat/long} and \texttt{merch\_lat/merch\_long}: where the cardholder lives and where the merchant is
+(gives distance). \texttt{city\_pop}: population of the cardholder's city. \texttt{gender}.
+\textbf{Limitation:} the data is simulated, so our findings describe the generator's fraud profiles,
+not a real bank; we treat it as a controlled setting for inference.
+
+\section{Data preparation}\label{sec:prep}
+\begin{itemize}
+\item \textbf{Missing values and duplicates.} 0 missing values in all 23 columns; 0 duplicate transaction ids
+and 0 duplicate rows. Nothing had to be imputed or removed.
+\item \textbf{Derived features.} Hour, night flag (22:00--03:59), day of week and month from the timestamp;
+age at transaction $=(\text{date}-\texttt{dob})/365.25$; customer--merchant distance by the haversine formula;
+$\log(1+\texttt{amt})$; $\log_{10}$ city population; binary gender.
+\item \textbf{Encoding.} One-hot encoding of the 14 categories. We drop names, street, card number,
+transaction id, merchant name, job, city, zip and state: they identify people or are high-cardinality
+identifiers with no inferential role.
+\item \textbf{Outliers.} Amounts are extremely right-skewed (median \$47.45, maximum \$28,948.90). We do
+\emph{not} delete large amounts, because fraud lives in that tail (Section~\ref{sec:eda}); instead we work
+with $\log(1+\texttt{amt})$.
+\end{itemize}
+\paragraph{Before vs after.} The log transform reduces the skewness of amount from 40.81 to $-0.30$,
+and the number of points outside $[Q_1-1.5\,\mathrm{IQR},\,Q_3+1.5\,\mathrm{IQR}]$ from 95,054 to 1,220
+(Figure~\ref{fig:prep}). Ages range from 13.9 to 96.2 years and distances from 0.02 to 152.1~km, all plausible,
+so no further cleaning was needed.
+
+\begin{figure}[h]
+\centering\includegraphics[width=0.8\linewidth]{prep_before_after.pdf}
+\caption{Amount before (left, clipped at \$1500 for display) and after (right) the log transform.}
+\label{fig:prep}
+\end{figure}
+
+\section{Questions, novelty and EDA}\label{sec:eda}
+\textbf{Questions.} (1) Do frauds involve larger amounts, and by how much? (2) Is fraud a night-time
+phenomenon? (3) Which merchant categories are riskiest? (4) Are the cardholders hit by fraud older?
+(5) Does fraud happen farther from the cardholder's home?
+
+\textbf{Novelty.} Most public work on this dataset jumps straight to classifiers and reports accuracy.
+We instead ask which differences are statistically real \emph{and} large enough to matter, test them on a
+power-calculated sample rather than on the full data, engineer and test a customer--merchant distance
+feature, and then check whether each tested signal actually helps a classifier (ablation).
+
+\begin{figure}[h]
+\centering
+\begin{subfigure}{0.32\linewidth}\includegraphics[width=\linewidth]{eda_log_amt.pdf}\caption{}\end{subfigure}
+\begin{subfigure}{0.32\linewidth}\includegraphics[width=\linewidth]{eda_hour.pdf}\caption{}\end{subfigure}
+\begin{subfigure}{0.32\linewidth}\includegraphics[width=\linewidth]{eda_category.pdf}\caption{}\end{subfigure}\\
+\begin{subfigure}{0.32\linewidth}\includegraphics[width=\linewidth]{eda_age.pdf}\caption{}\end{subfigure}
+\begin{subfigure}{0.32\linewidth}\includegraphics[width=\linewidth]{eda_distance.pdf}\caption{}\end{subfigure}
+\caption{EDA on the full data. (a) Frauds are much larger: median \$390 vs \$47. (b) The fraud rate is
+about 2.6\% at 22--23h and 1.3\% at 0--3h, versus about 0.1\% in every other hour (red = night).
+(c) Online shopping, misc.\ online and in-store groceries have fraud rates of 1.3--1.6\%, about 2.4--3$\times$
+the overall 0.52\%. (d) Fraud victims are slightly older (mean 48.8 vs 46.3 years). (e) Distances look the
+same (mean 76.3 vs 76.1~km).}
+\label{fig:eda}
+\end{figure}
+
+\section{Statistical inference}
+\subsection{Sampling design}
+The lecture requirement is to test on a part of the data, not on all of it. On 1.85 million rows every test
+has so much power that even a trivially small difference gives a tiny p-value, so the p-values would carry
+no information. We therefore test on a \textbf{stratified random sample}. A simple random sample would not
+work: 4,000 random rows contain only about 21 frauds.
+
+\begin{enumerate}
+\item \textbf{Pilot.} 500 fraud + 500 legitimate rows (seed 7) estimate the standard deviations.
+\item \textbf{Power calculation} at $\alpha=0.01$ (Bonferroni for five tests) and power $0.8$:
+$n=2(z_{1-\alpha}+z_{1-\beta})^2\sigma^2/\Delta^2$ per group for means, and the usual two-proportion formula
+for Test~2. With the pilot SDs this gives 263 (amount, $\sigma=1.47$, $\Delta=\ln 1.5$, one-sided),
+383 (night share $0.21\to0.31$, one-sided), 810 (age, $\sigma=17.7$, $\Delta=3$~yr) and 786
+(distance, $\sigma=29.0$, $\Delta=5$~km) per group.
+\item \textbf{Test sample.} We take \textbf{2,000 fraud + 2,000 legitimate} transactions (seed 42), without
+replacement and disjoint from the pilot, comfortably above every requirement. The sample is representative
+within each class: means of amount, age, distance and night share are within 6\% of the full-data values,
+and no category share differs by more than 1.1 percentage points. Sample ids are saved in the repository.
+\end{enumerate}
+Because the classes are sampled in fixed numbers, the sample's 50\% fraud rate is artificial. Tests~2 and~3
+therefore compare how night-time and categories are distributed \emph{within} frauds and \emph{within}
+legitimate transactions. Independence is symmetric, so this answers the same question, and odds ratios
+remain valid under this design (the case--control argument).
+
+Each test uses $\alpha=0.05$, and we also report whether it survives the Bonferroni level $0.01$.
+For each test we fixed the smallest difference that would matter \emph{before} looking at the sample.
+
+\subsection{Test 1: frauds involve larger amounts}
+$H_0:\mu_{\text{fraud}}=\mu_{\text{legit}}$ vs $H_1:\mu_{\text{fraud}}>\mu_{\text{legit}}$ for
+$\log(1+\texttt{amt})$, one-sided because the direction was expected. Smallest difference that matters:
+fraud amounts at least $1.5\times$ larger (geometric means), i.e.\ $\Delta\ge\ln 1.5=0.405$.
+An $F$-test rejects equal variances ($F=1.66$, df $=(1999,1999)$, $\pz$; SDs 1.63 vs 1.27), so we use
+\textbf{Welch's $t$-test} rather than the pooled $t$-test.
+\textbf{Result:} $t=43.67$, df $=3763.8$, $\pz$; reject $H_0$. Difference of log means $2.02$
+(95\% CI $[1.93, 2.11]$), i.e.\ fraud amounts are \textbf{7.5$\times$ larger} (95\% CI $[6.9, 8.2]$).
+The whole CI is far above 1.5, so the difference matters.
+\emph{Other tests:} the $z$-test gives the same answer at this $n$ but assumes known $\sigma$; Mann--Whitney
+$U$ (no normality assumption) agrees ($p\approx10^{-285}$).
+
+\subsection{Test 2: fraud is more likely at night}
+$H_0: P(\text{night}\mid\text{fraud})=P(\text{night}\mid\text{legit})$ vs $H_1$: greater (one-sided).
+Smallest difference that matters: 10 percentage points. \textbf{Two-proportion $z$-test.}
+\textbf{Result:} 85.4\% of frauds vs 23.5\% of legitimate transactions are at night; $z=39.30$, $\pz$;
+reject $H_0$. Difference 61.9 pp (95\% CI $[59.5, 64.3]$); odds ratio \textbf{19.0} ($[16.2, 22.4]$).
+Far beyond 10 pp, so it matters. \emph{Other tests:} the $\chi^2$ test on the $2\times2$ table gives
+$\chi^2=1544.6=z^2$ but is two-sided only; Fisher's exact test agrees but is unnecessary with 2,000 per group.
+
+\subsection{Test 3: fraud depends on the merchant category}
+$H_0$: category has the same distribution among frauds and legitimate transactions (independence) vs
+$H_1$: the distributions differ. \textbf{$\chi^2$ test of independence} on the $14\times2$ table, df $=13$;
+the smallest expected count is 49.5, so the approximation is valid. Smallest difference that matters: a
+category with odds ratio $\ge 2$ (fraud vs legitimate).
+\textbf{Result:} $\chi^2=742.0$, $p=3.6\times10^{-150}$; reject $H_0$. Cramér's $V=0.43$ (strong).
+Per-category odds ratios (category vs rest): \texttt{shopping\_net} 3.71 $[3.05, 4.52]$,
+\texttt{grocery\_pos} 3.22 $[2.67, 3.88]$, \texttt{misc\_net} 2.48 $[1.96, 3.14]$; at the other end
+\texttt{home} 0.18 $[0.13, 0.26]$. The CIs of online shopping and in-store groceries lie entirely above 2,
+so these two matter; misc.\ online very likely does. \emph{Other tests:} the G-test (likelihood ratio)
+gives $G=778.7$, same conclusion; Fisher's exact test is impractical for a $14\times2$ table this size.
+
+\subsection{Test 4: fraud victims differ in age}
+$H_0:\mu_{\text{fraud}}=\mu_{\text{legit}}$ (age) vs $H_1$: they differ (two-sided; no prior direction).
+Smallest difference that matters: 3 years. \textbf{Welch's $t$-test.}
+\textbf{Result:} $t=4.40$, df $=3994.2$, $p=1.1\times10^{-5}$; reject $H_0$. Fraud victims are
+\textbf{2.6 years older} (95\% CI $[1.4, 3.7]$). The CI contains 3, so we cannot say the difference matters;
+an equivalence test (TOST, $\pm3$ years) does not establish that it is negligible either ($p=0.23$).
+\emph{Conclusion: real but small, practical relevance unclear.} \emph{Other tests:} Mann--Whitney agrees
+($p=4\times10^{-6}$); Kolmogorov--Smirnov ($D=0.107$, $p=2\times10^{-10}$) shows the age
+\emph{distributions} differ in shape, not just in mean (visible in Figure~\ref{fig:eda}d).
+
+\subsection{Test 5: does fraud happen farther from home?}
+$H_0:\mu_{\text{fraud}}=\mu_{\text{legit}}$ (distance in km) vs $H_1$: they differ (two-sided).
+Smallest difference that matters: 5~km. \textbf{Welch's $t$-test.}
+\textbf{Result:} $t=1.94$, df $=3998.0$, $p=0.053$; we \textbf{fail to reject} $H_0$. Difference 1.8~km
+(95\% CI $[-0.02, 3.54]$). Failing to reject does not prove equality, so we add an equivalence test:
+TOST with bounds $\pm5$~km rejects non-equivalence ($p=0.0002$). Since the sample was powered to detect
+5~km, we conclude that \textbf{any distance difference is practically negligible}. This suggests the
+simulator places merchants independently of whether a transaction is fraudulent.
+\emph{Other tests:} Mann--Whitney is borderline ($p=0.046$, not significant at 0.01); KS $p=0.064$.
+
+\subsection{Summary and robustness}
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}llrrlll@{}}
+\toprule
+Test & Method & Statistic & $p$ & Estimate (95\% CI) & Reject at 0.01? & Matters? \\
+\midrule
+1 Amount & Welch $t$ (1-sided) & $t=43.67$ & $\pz$ & ratio 7.5 [6.9, 8.2] & yes & yes \\
+2 Night & 2-prop.\ $z$ (1-sided) & $z=39.30$ & $\pz$ & +61.9 pp [59.5, 64.3] & yes & yes \\
+3 Category & $\chi^2$ indep., df 13 & $\chi^2=742.0$ & $10^{-150}$ & $V=0.43$; OR up to 3.7 & yes & yes \\
+4 Age & Welch $t$ (2-sided) & $t=4.40$ & $10^{-5}$ & +2.6 yr [1.4, 3.7] & yes & unclear \\
+5 Distance & Welch $t$ (2-sided) & $t=1.94$ & 0.053 & +1.8 km [$-0.02$, 3.5] & no & no (TOST) \\
+\bottomrule
+\end{tabular}
+\caption{Hypothesis tests on the stratified sample (2,000 fraud + 2,000 legitimate).}
+\label{tab:tests}
+\end{table}
+Repeating all five tests on five further independent samples (seeds 1001--1005) gives the same
+decision at $\alpha=0.01$ every time. As an extra, a $\chi^2$ goodness-of-fit test shows that frauds are not
+spread across the days of the week like legitimate transactions ($\chi^2=88.5$, df $=6$,
+$p=6\times10^{-17}$; fraud rates are highest Wednesday--Friday).
+
+\section{Using the signals: binary classification}
+Since the data is labelled, we fit supervised binary classifiers and check whether the signals found above
+are the ones a model needs. We train on \texttt{fraudTrain.csv} (later split 80/20 into training
+and validation) and evaluate once on \texttt{fraudTest.csv} (555,719 rows, 2,145 frauds; later months, so no
+leakage). Features: log amount, hour, night flag, day of week, age, gender, log city population, distance and
+the 14 category dummies. All modelling choices and the decision threshold (maximum F1) were made on the
+validation split only. Class weighting lowered validation PR-AUC for both models, so we handle imbalance with
+the threshold instead. We report precision, recall, F1 and PR-AUC, not accuracy: predicting ``legitimate''
+for everything already scores 99.6\%.
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+Model (test set) & Precision & Recall & F1 & PR-AUC & ROC-AUC \\
+\midrule
+Logistic regression, linear terms & 0.32 & 0.58 & 0.41 & 0.39 & 0.90 \\
+Logistic regression, spline terms (amount, hour, age) & 0.64 & 0.70 & 0.67 & 0.70 & 0.95 \\
+Decision tree (depth 12, min.\ leaf 20) & \textbf{0.87} & \textbf{0.78} & \textbf{0.82} & \textbf{0.85} & \textbf{0.98} \\
+\bottomrule
+\end{tabular}
+\caption{Classifier performance on the held-out test file.}
+\label{tab:models}
+\end{table}
+
+\paragraph{Model comparison.} Plain logistic regression is weak because the effect of amount is not
+monotone: the largest spline coefficients for amount change sign across its range ($-11.8$, $+7.2$, $+7.3$). Adding spline terms lifts PR-AUC from 0.39
+to 0.70. The decision tree captures these interactions directly and is best.
+\textbf{McNemar's test} on the test-set predictions ($H_0$: both models have the same error rate): the tree
+is right where logistic regression is wrong 944 times, the reverse 180 times; $\chi^2=517.9$,
+$p\approx10^{-114}$. A paired bootstrap (200 resamples) gives the tree an F1 advantage of
+$[0.14, 0.17]$ and a PR-AUC advantage of $[0.13, 0.16]$ (95\% CIs).
+
+\paragraph{Do the tested signals matter in the model?} We drop each tested feature group, refit, and
+measure the fall in test PR-AUC (95\% bootstrap CI, 100 resamples):
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}lllc@{}}
+\toprule
+Feature group dropped & Fall in PR-AUC: spline LR & Fall in PR-AUC: tree & Hypothesis test said \\
+\midrule
+Amount (Test 1) & $0.48$ [0.46, 0.50] & $0.61$ [0.59, 0.63] & large \\
+Time of day (Test 2) & $0.11$ [0.09, 0.13] & $0.11$ [0.10, 0.13] & large \\
+Category (Test 3) & $0.32$ [0.29, 0.33] & $0.21$ [0.19, 0.23] & large \\
+Age (Test 4) & $0.007$ [0.005, 0.010] & $0.04$ [0.02, 0.05] & small, unclear \\
+Distance (Test 5) & $0.000$ [$-0.0001$, 0.0001] & $0.000$ [$-0.003$, 0.003] & negligible \\
+\bottomrule
+\end{tabular}
+\caption{Ablation: drop in test PR-AUC when a feature group is removed (CI of the drop).}
+\label{tab:ablation}
+\end{table}
+
+The ablation lines up with the inference. The three features with large, practically important differences
+(amount, category, time of day) are the ones the models cannot do without. Age, statistically significant
+but small, adds little. Distance, shown by TOST to be negligible, adds nothing. The tree's feature
+importances tell the same story (log amount 0.31, \texttt{grocery\_pos} 0.25, night 0.14).
+
+\section{Conclusion and limitations}
+Frauds in this data are \textbf{about 7.5$\times$ larger}, \textbf{overwhelmingly at night} (85\% vs 23\%,
+odds ratio 19), and \textbf{concentrated in online shopping and in-store groceries} (odds ratios 3.2--3.7).
+Fraud victims are slightly older (2.6 years), a real difference whose practical relevance our sample cannot
+settle. Fraud does \emph{not} happen farther from home: an equivalence test shows any difference is under
+5~km. These conclusions come from a power-calculated stratified sample, are stable across five further
+samples, and are confirmed by an ablation of two classifiers, where a depth-12 decision tree reaches
+PR-AUC 0.85 on unseen later months.
+
+\textbf{Limitations.} The data is simulated, so effects reflect the generator's design. The tests use one
+sample (although five replications agree). Five tests are run, which we handle with Bonferroni. Stratified
+sampling cannot estimate absolute fraud rates, which we report only descriptively from the full data.
+Customers repeat across rows, so observations are not fully independent.
+
+\end{document}

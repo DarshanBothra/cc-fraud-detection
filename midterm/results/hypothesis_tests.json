@@ -1,0 +1,460 @@
+{
+  "pilot_per_class": 500,
+  "power_calculation": {
+    "test1_log_amt": {
+      "sd_pilot": 1.4661265606829306,
+      "delta": 0.4054651081081644,
+      "n_per_group": 263
+    },
+    "test2_night": {
+      "p_legit_pilot": 0.208,
+      "delta": 0.1,
+      "n_per_group": 383
+    },
+    "test4_age": {
+      "sd_pilot": 17.661692567655138,
+      "delta": 3.0,
+      "n_per_group": 810
+    },
+    "test5_distance": {
+      "sd_pilot": 29.001397368977695,
+      "delta": 5.0,
+      "n_per_group": 786
+    }
+  },
+  "largest_required_per_class": 810,
+  "sample_per_class": 2000,
+  "alpha": 0.05,
+  "alpha_bonferroni": 0.01,
+  "representativeness": {
+    "legit": {
+      "mean_amt": [
+        71.714595,
+        67.65127786131869
+      ],
+      "mean_age": [
+        46.653897330595484,
+        46.25041536197561
+      ],
+      "mean_distance": [
+        74.8204142528254,
+        76.11096923171316
+      ],
+      "night_share": [
+        0.2345,
+        0.23163946356057247
+      ],
+      "max_abs_category_share_diff": 0.011381380366117258
+    },
+    "fraud": {
+      "mean_amt": [
+        533.8688549999999,
+        530.661412288882
+      ],
+      "mean_age": [
+        49.21581656399726,
+        48.83406293751872
+      ],
+      "mean_distance": [
+        76.58160924141468,
+        76.25623338272831
+      ],
+      "night_share": [
+        0.8535,
+        0.8464407833385141
+      ],
+      "max_abs_category_share_diff": 0.008458294477256243
+    }
+  },
+  "tests": {
+    "test1_amount": {
+      "f_test_variances": {
+        "F": 1.664671887188264,
+        "df1": 1999,
+        "df2": 1999,
+        "p": 0.0
+      },
+      "welch": {
+        "t": 43.668122289839395,
+        "df": 3763.8168604805455,
+        "p": 0.0,
+        "diff": 2.01861000848557,
+        "ci95": [
+          1.9279792369623776,
+          2.109240780008762
+        ],
+        "se": 0.04622616917410381,
+        "mean_fraud": 5.561115734344315,
+        "mean_legit": 3.5425057258587453,
+        "sd_fraud": 1.6339748017162645,
+        "sd_legit": 1.2664295402358654
+      },
+      "reject_at_0.05": true,
+      "reject_at_bonferroni_0.01": true,
+      "ratio_geometric_means": 7.5278540049080584,
+      "ratio_ci95": [
+        6.875602231067332,
+        8.241981431554303
+      ],
+      "matters_threshold_ratio": 1.5,
+      "matters": true,
+      "pooled_t": {
+        "t": 43.668122289839395,
+        "p": 0.0
+      },
+      "mann_whitney": {
+        "U": 3318453.5,
+        "p": 1.0244986732432634e-285
+      },
+      "median_amt": {
+        "fraud": 446.855,
+        "legit": 47.525000000000006
+      }
+    },
+    "test2_night": {
+      "night_share_fraud": 0.8535,
+      "night_share_legit": 0.2345,
+      "z": 39.301468476465416,
+      "p": 0.0,
+      "reject_at_0.05": true,
+      "reject_at_bonferroni_0.01": true,
+      "diff": 0.619,
+      "diff_ci95": [
+        0.5948137469210297,
+        0.6431862530789703
+      ],
+      "odds_ratio": 19.018149137297424,
+      "odds_ratio_ci95": [
+        16.182920559075313,
+        22.35010641547347
+      ],
+      "matters_threshold_pp": 0.1,
+      "matters": true,
+      "chi2_2x2": {
+        "chi2": 1544.6054244066045,
+        "p_two_sided": 0.0,
+        "z_squared": 1544.605424406605
+      },
+      "fisher_exact": {
+        "p": 0.0
+      }
+    },
+    "test3_category": {
+      "chi2": 742.0163975793582,
+      "df": 13,
+      "p": 3.5648803739877006e-150,
+      "reject_at_0.05": true,
+      "reject_at_bonferroni_0.01": true,
+      "min_expected": 49.5,
+      "cramers_v": 0.4307018683437995,
+      "g_test": {
+        "G": 778.7044142084155,
+        "p": 5.015479729516012e-158
+      },
+      "per_category": {
+        "entertainment": {
+          "fraud_count": 65,
+          "legit_count": 168,
+          "share_in_fraud": 0.0325,
+          "share_in_legit": 0.084,
+          "odds_ratio": 0.3663098314261105,
+          "or_ci95": [
+            0.2731813616335926,
+            0.49118611825136066
+          ],
+          "matters": false
+        },
+        "food_dining": {
+          "fraud_count": 38,
+          "legit_count": 142,
+          "share_in_fraud": 0.019,
+          "share_in_legit": 0.071,
+          "odds_ratio": 0.25342062569094487,
+          "or_ci95": [
+            0.17617775029229155,
+            0.3645296492834144
+          ],
+          "matters": false
+        },
+        "gas_transport": {
+          "fraud_count": 172,
+          "legit_count": 226,
+          "share_in_fraud": 0.086,
+          "share_in_legit": 0.113,
+          "odds_ratio": 0.7385798106155962,
+          "or_ci95": [
+            0.5993961217556657,
+            0.9100828598142555
+          ],
+          "matters": false
+        },
+        "grocery_net": {
+          "fraud_count": 35,
+          "legit_count": 64,
+          "share_in_fraud": 0.0175,
+          "share_in_legit": 0.032,
+          "odds_ratio": 0.5388040712468194,
+          "or_ci95": [
+            0.35515329641509114,
+            0.8174211815644907
+          ],
+          "matters": false
+        },
+        "grocery_pos": {
+          "fraud_count": 465,
+          "legit_count": 172,
+          "share_in_fraud": 0.2325,
+          "share_in_legit": 0.086,
+          "odds_ratio": 3.2195288235739716,
+          "or_ci95": [
+            2.668767654208264,
+            3.883952141535778
+          ],
+          "matters": true
+        },
+        "health_fitness": {
+          "fraud_count": 39,
+          "legit_count": 145,
+          "share_in_fraud": 0.0195,
+          "share_in_legit": 0.0725,
+          "odds_ratio": 0.25442684063373716,
+          "or_ci95": [
+            0.17764923554495862,
+            0.36438669176531735
+          ],
+          "matters": false
+        },
+        "home": {
+          "fraud_count": 38,
+          "legit_count": 191,
+          "share_in_fraud": 0.019,
+          "share_in_legit": 0.0955,
+          "odds_ratio": 0.18343820548537393,
+          "or_ci95": [
+            0.12875551624165674,
+            0.26134472692058147
+          ],
+          "matters": false
+        },
+        "kids_pets": {
+          "fraud_count": 62,
+          "legit_count": 155,
+          "share_in_fraud": 0.031,
+          "share_in_legit": 0.0775,
+          "odds_ratio": 0.38080495356037153,
+          "or_ci95": [
+            0.28172740740099733,
+            0.5147259686016739
+          ],
+          "matters": false
+        },
+        "misc_net": {
+          "fraud_count": 248,
+          "legit_count": 108,
+          "share_in_fraud": 0.124,
+          "share_in_legit": 0.054,
+          "odds_ratio": 2.4797902925756805,
+          "or_ci95": [
+            1.960204605110572,
+            3.1371010348206503
+          ],
+          "matters": false
+        },
+        "misc_pos": {
+          "fraud_count": 65,
+          "legit_count": 120,
+          "share_in_fraud": 0.0325,
+          "share_in_legit": 0.06,
+          "odds_ratio": 0.5262704565030146,
+          "or_ci95": [
+            0.3865888386635758,
+            0.7164215975436191
+          ],
+          "matters": false
+        },
+        "personal_care": {
+          "fraud_count": 50,
+          "legit_count": 137,
+          "share_in_fraud": 0.025,
+          "share_in_legit": 0.0685,
+          "odds_ratio": 0.3486805165637282,
+          "or_ci95": [
+            0.2506728082094381,
+            0.4850071433738013
+          ],
+          "matters": false
+        },
+        "shopping_net": {
+          "fraud_count": 460,
+          "legit_count": 149,
+          "share_in_fraud": 0.23,
+          "share_in_legit": 0.0745,
+          "odds_ratio": 3.710712106685261,
+          "or_ci95": [
+            3.0480161583631076,
+            4.517490598243814
+          ],
+          "matters": true
+        },
+        "shopping_pos": {
+          "fraud_count": 222,
+          "legit_count": 164,
+          "share_in_fraud": 0.111,
+          "share_in_legit": 0.082,
+          "odds_ratio": 1.3978161266427063,
+          "or_ci95": [
+            1.130682850419088,
+            1.7280618726800432
+          ],
+          "matters": false
+        },
+        "travel": {
+          "fraud_count": 41,
+          "legit_count": 59,
+          "share_in_fraud": 0.0205,
+          "share_in_legit": 0.0295,
+          "odds_ratio": 0.6885301217328108,
+          "or_ci95": [
+            0.4599586954543428,
+            1.0306876100366225
+          ],
+          "matters": false
+        }
+      },
+      "categories_that_matter": [
+        "grocery_pos",
+        "shopping_net"
+      ]
+    },
+    "test4_age": {
+      "welch": {
+        "t": 4.39803453117652,
+        "df": 3994.1949479901036,
+        "p": 1.1208091077485267e-05,
+        "diff": 2.561919233401774,
+        "ci95": [
+          1.419865562248617,
+          3.703972904554931
+        ],
+        "se": 0.5825145790104641,
+        "mean_fraud": 49.21581656399726,
+        "mean_legit": 46.653897330595484,
+        "sd_fraud": 18.70284554956253,
+        "sd_legit": 18.134222836082213
+      },
+      "reject_at_0.05": true,
+      "reject_at_bonferroni_0.01": true,
+      "matters_threshold_years": 3.0,
+      "matters": false,
+      "tost_3_years": {
+        "delta": 3.0,
+        "t_lower": 9.54812022533407,
+        "t_upper": -0.7520511629810325,
+        "p": 0.22603230255462306
+      },
+      "mann_whitney": {
+        "U": 2168468.0,
+        "p": 3.967144028180314e-06
+      },
+      "ks": {
+        "D": 0.10699999999999998,
+        "p": 2.1877204990944726e-10
+      }
+    },
+    "test5_distance": {
+      "welch": {
+        "t": 1.9389718871828487,
+        "df": 3997.968398766896,
+        "p": 0.05257504134818912,
+        "diff": 1.7611949885892813,
+        "ci95": [
+          -0.019606538297363807,
+          3.541996515475926
+        ],
+        "se": 0.9083138338576628,
+        "mean_fraud": 76.58160924141468,
+        "mean_legit": 74.8204142528254,
+        "sd_fraud": 28.76375450470994,
+        "sd_legit": 28.682999639981702
+      },
+      "reject_at_0.05": false,
+      "reject_at_bonferroni_0.01": false,
+      "matters_threshold_km": 5.0,
+      "ci_inside_equivalence_band": true,
+      "tost_5km": {
+        "delta": 5.0,
+        "t_lower": 7.443677214376538,
+        "t_upper": -3.56573344001084,
+        "p": 0.00018354358604993383
+      },
+      "mann_whitney": {
+        "U": 2072819.0,
+        "p": 0.04615560390902356
+      },
+      "ks": {
+        "D": 0.04149999999999998,
+        "p": 0.06383123566557118
+      }
+    },
+    "extra_dow_gof": {
+      "chi2": 88.4505960967749,
+      "df": 6,
+      "p": 6.35539078271185e-17,
+      "observed": [
+        297,
+        247,
+        226,
+        270,
+        317,
+        319,
+        324
+      ],
+      "expected": [
+        399.3329509323872,
+        292.0363827185886,
+        198.3868613257519,
+        222.95458455139973,
+        231.9390169980296,
+        284.06999782389624,
+        371.2802056499468
+      ]
+    }
+  },
+  "robustness_5_samples_reject_at_0.01": {
+    "test1_amount": [
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "test2_night": [
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "test3_category": [
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "test4_age": [
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "test5_distance": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  }
+}

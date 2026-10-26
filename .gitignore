@@ -3,3 +3,11 @@ playground/
 dataset/*.csv
 dataset/.DS_Store
 .DS_Store/
+midterm/results/prepared.parquet
+.venv/
+midterm/report/*.aux
+midterm/report/*.log
+midterm/report/*.out
+midterm/report/*.fdb_latexmk
+midterm/report/*.fls
+__pycache__/

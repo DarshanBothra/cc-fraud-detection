@@ -1,0 +1,262 @@
+{
+  "n_train": 1037340,
+  "n_val": 259335,
+  "n_test": 555719,
+  "frauds_test": 2145,
+  "features": [
+    "log_amt",
+    "hour",
+    "is_night",
+    "day_of_week",
+    "age",
+    "gender_M",
+    "log_city_pop",
+    "distance_km",
+    "cat_entertainment",
+    "cat_food_dining",
+    "cat_gas_transport",
+    "cat_grocery_net",
+    "cat_grocery_pos",
+    "cat_health_fitness",
+    "cat_home",
+    "cat_kids_pets",
+    "cat_misc_net",
+    "cat_misc_pos",
+    "cat_personal_care",
+    "cat_shopping_net",
+    "cat_shopping_pos",
+    "cat_travel"
+  ],
+  "logistic_regression_linear": {
+    "threshold": 0.08340769828492088,
+    "precision": 0.3235448348190876,
+    "recall": 0.5752913752913753,
+    "f1": 0.4141634502433294,
+    "pr_auc": 0.3914623736503387,
+    "roc_auc": 0.9006781152048089,
+    "confusion": {
+      "tn": 550994,
+      "fp": 2580,
+      "fn": 911,
+      "tp": 1234
+    }
+  },
+  "logistic_regression": {
+    "threshold": 0.23522749768621562,
+    "precision": 0.6389124893797791,
+    "recall": 0.7011655011655011,
+    "f1": 0.6685930206712603,
+    "pr_auc": 0.7025387434890356,
+    "roc_auc": 0.9494050178175517,
+    "confusion": {
+      "tn": 552724,
+      "fp": 850,
+      "fn": 641,
+      "tp": 1504
+    }
+  },
+  "decision_tree": {
+    "threshold": 0.4230769230769231,
+    "precision": 0.8669772256728778,
+    "recall": 0.7808857808857809,
+    "f1": 0.82168260976208,
+    "pr_auc": 0.8450025963338047,
+    "roc_auc": 0.9794233282460691,
+    "confusion": {
+      "tn": 553317,
+      "fp": 257,
+      "fn": 470,
+      "tp": 1675
+    }
+  },
+  "baseline_all_legit_accuracy": 0.9961401355721147,
+  "lr_coefficients": {
+    "spline__log_amt_sp_4": -11.8419,
+    "spline__log_amt_sp_6": 7.2958,
+    "spline__log_amt_sp_5": 7.1777,
+    "spline__log_amt_sp_1": -3.9678,
+    "spline__log_amt_sp_3": -3.1012,
+    "remainder__cat_gas_transport": 1.6584,
+    "remainder__cat_grocery_pos": 1.3933,
+    "spline__hour_sp_1": -1.3343,
+    "spline__hour_sp_4": -1.3212,
+    "spline__age_sp_3": -1.2794,
+    "spline__hour_sp_3": -1.2184,
+    "spline__hour_sp_2": -1.1802,
+    "remainder__cat_shopping_pos": -1.0145,
+    "remainder__is_night": 0.9993,
+    "remainder__cat_travel": -0.8207,
+    "spline__hour_sp_8": 0.7871,
+    "remainder__cat_misc_pos": -0.7487,
+    "remainder__cat_shopping_net": -0.735,
+    "spline__log_amt_sp_2": 0.7027,
+    "spline__age_sp_6": -0.6132,
+    "remainder__cat_grocery_net": 0.5977,
+    "spline__age_sp_4": -0.5928,
+    "spline__age_sp_1": -0.5623,
+    "remainder__cat_misc_net": -0.521,
+    "spline__age_sp_2": -0.5192,
+    "spline__log_amt_sp_0": -0.3537,
+    "spline__hour_sp_6": 0.2608,
+    "spline__hour_sp_0": -0.2529,
+    "spline__age_sp_8": -0.2306,
+    "remainder__cat_entertainment": -0.2284,
+    "remainder__gender_M": 0.1451,
+    "spline__hour_sp_9": 0.1404,
+    "remainder__cat_food_dining": -0.138,
+    "spline__hour_sp_5": 0.1314,
+    "remainder__log_city_pop": -0.1089,
+    "remainder__cat_health_fitness": -0.0928,
+    "spline__age_sp_5": -0.0914,
+    "spline__log_amt_sp_7": 0.0906,
+    "remainder__cat_kids_pets": 0.077,
+    "spline__age_sp_0": -0.069,
+    "spline__age_sp_9": -0.0274,
+    "remainder__day_of_week": 0.0198,
+    "spline__age_sp_7": -0.0187,
+    "spline__hour_sp_7": -0.0167,
+    "remainder__cat_home": -0.0144,
+    "remainder__distance_km": 0.0074,
+    "spline__log_amt_sp_8": -0.0061,
+    "remainder__cat_personal_care": -0.0026,
+    "spline__log_amt_sp_9": -0.0
+  },
+  "tree_importances": {
+    "log_amt": 0.3132,
+    "cat_grocery_pos": 0.247,
+    "is_night": 0.1372,
+    "cat_gas_transport": 0.0922,
+    "age": 0.0733,
+    "hour": 0.05,
+    "gender_M": 0.0209,
+    "log_city_pop": 0.0153,
+    "cat_home": 0.0096,
+    "cat_misc_net": 0.0093,
+    "cat_travel": 0.008,
+    "cat_misc_pos": 0.0058,
+    "cat_entertainment": 0.0049,
+    "cat_grocery_net": 0.0032,
+    "cat_shopping_pos": 0.0018,
+    "day_of_week": 0.0016,
+    "cat_kids_pets": 0.0015,
+    "cat_personal_care": 0.0013,
+    "cat_shopping_net": 0.0013,
+    "distance_km": 0.0012,
+    "cat_health_fitness": 0.001,
+    "cat_food_dining": 0.0002
+  },
+  "mcnemar_lr_vs_tree": {
+    "table": [
+      [
+        554048,
+        180
+      ],
+      [
+        944,
+        547
+      ]
+    ],
+    "chi2": 517.9439501779359,
+    "p": 1.18539868893681e-114
+  },
+  "bootstrap_f1_diff_tree_minus_lr_ci95": [
+    0.14037890386205945,
+    0.16769776595225885
+  ],
+  "bootstrap_prauc_diff_tree_minus_lr_ci95": [
+    0.12715337306350777,
+    0.15999639828500145
+  ],
+  "ablation": {
+    "amount (test 1)": {
+      "logistic_regression": {
+        "pr_auc_without": 0.2215566933665096,
+        "pr_auc_drop": 0.48098205012252593,
+        "drop_ci95": [
+          0.46318369051216784,
+          0.5002594483405818
+        ]
+      },
+      "decision_tree": {
+        "pr_auc_without": 0.23614708465075043,
+        "pr_auc_drop": 0.6088555116830543,
+        "drop_ci95": [
+          0.5910134103060912,
+          0.6255920685626658
+        ]
+      }
+    },
+    "time of day (test 2)": {
+      "logistic_regression": {
+        "pr_auc_without": 0.5935300111021212,
+        "pr_auc_drop": 0.10900873238691433,
+        "drop_ci95": [
+          0.09241816582355088,
+          0.12551562894060894
+        ]
+      },
+      "decision_tree": {
+        "pr_auc_without": 0.7329185637655442,
+        "pr_auc_drop": 0.1120840325682605,
+        "drop_ci95": [
+          0.09817848603114986,
+          0.12576054144373616
+        ]
+      }
+    },
+    "category (test 3)": {
+      "logistic_regression": {
+        "pr_auc_without": 0.38626943685390575,
+        "pr_auc_drop": 0.3162693066351298,
+        "drop_ci95": [
+          0.29414307949257906,
+          0.3348934966535384
+        ]
+      },
+      "decision_tree": {
+        "pr_auc_without": 0.6373151182805779,
+        "pr_auc_drop": 0.20768747805322685,
+        "drop_ci95": [
+          0.19243095464699478,
+          0.2260506954311035
+        ]
+      }
+    },
+    "age (test 4)": {
+      "logistic_regression": {
+        "pr_auc_without": 0.6952276931248745,
+        "pr_auc_drop": 0.00731105036416102,
+        "drop_ci95": [
+          0.004778948350056092,
+          0.009998703156030929
+        ]
+      },
+      "decision_tree": {
+        "pr_auc_without": 0.8074266533951032,
+        "pr_auc_drop": 0.03757594293870148,
+        "drop_ci95": [
+          0.024985996312570764,
+          0.046638669279866166
+        ]
+      }
+    },
+    "distance (test 5)": {
+      "logistic_regression": {
+        "pr_auc_without": 0.7025524781463907,
+        "pr_auc_drop": -1.3734657355102264e-05,
+        "drop_ci95": [
+          -8.254449803438979e-05,
+          6.522276855902283e-05
+        ]
+      },
+      "decision_tree": {
+        "pr_auc_without": 0.8451862492053797,
+        "pr_auc_drop": -0.00018365287157495747,
+        "drop_ci95": [
+          -0.0031531194969967786,
+          0.0034804032311775766
+        ]
+      }
+    }
+  }
+}

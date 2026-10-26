@@ -1,0 +1,50 @@
+{
+  "rows_train": 1296675,
+  "rows_test": 555719,
+  "rows_total": 1852394,
+  "raw_columns_incl_index": 23,
+  "frauds_train": 7506,
+  "frauds_test": 2145,
+  "frauds_total": 9651,
+  "fraud_rate": 0.005210014716091717,
+  "missing_values_total": 0,
+  "missing_by_column": {},
+  "duplicate_trans_num": 0,
+  "duplicate_rows": 0,
+  "n_categories": 14,
+  "n_customers": 999,
+  "n_merchants": 693,
+  "date_range": [
+    "2019-01-01 00:00:18",
+    "2020-12-31 23:59:34"
+  ],
+  "before_after": {
+    "amt_skew": 40.81277612758825,
+    "log_amt_skew": -0.3025571272279237,
+    "amt_iqr_outliers": 95054,
+    "log_amt_iqr_outliers": 1220,
+    "amt_median": 47.45,
+    "amt_max": 28948.9,
+    "age_min": 13.921971252566735,
+    "age_max": 96.1697467488022,
+    "distance_min": 0.022254515638533652,
+    "distance_max": 152.1171731059506
+  },
+  "encoded_columns": 28,
+  "cells_raw": 42605062,
+  "cells_encoded": 51867032,
+  "dropped_columns": [
+    "cc_num",
+    "first",
+    "last",
+    "street",
+    "trans_num",
+    "merchant",
+    "job",
+    "city",
+    "zip",
+    "state",
+    "dob",
+    "trans_date_trans_time"
+  ]
+}
